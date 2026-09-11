@@ -158,7 +158,6 @@ function parseScoreData(text: string): ScoreData {
 
 function parseResearch(text: string): ResearchSection[] {
   const lines = text.split("\n");
-
   const sections: ResearchSection[] = [];
 
   let currentNumber = "";
@@ -211,9 +210,11 @@ function parseResearch(text: string): ResearchSection[] {
       saveCurrentSection();
 
       currentNumber = numberedHeading[1];
+
       currentTitle = cleanMarkdownText(
         numberedHeading[2]
       );
+
       currentContent = [];
 
       continue;
@@ -387,7 +388,10 @@ function ResearchPageContent() {
 
       const responseText = await response.text();
 
-      let data;
+      let data: {
+        research?: string;
+        error?: string;
+      } | null = null;
 
       try {
         data = responseText
