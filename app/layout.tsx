@@ -22,10 +22,16 @@ export const metadata: Metadata = {
   authors: [{ name: "LaunchIQ" }],
   creator: "LaunchIQ",
   publisher: "LaunchIQ",
+
   robots: {
     index: true,
     follow: true,
   },
+
+  verification: {
+    google: "EsrwGSrzIEZ1UqK6K2n8CEYysMrFIfcOQgxjCnkxZkU",
+  },
+
   openGraph: {
     title: "LaunchIQ — AI Venture Intelligence",
     description:
@@ -33,6 +39,7 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "LaunchIQ",
   },
+
   twitter: {
     card: "summary_large_image",
     title: "LaunchIQ — AI Venture Intelligence",
