@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 const countries = [
@@ -141,7 +141,7 @@ function parseScoreData(text: string): ScoreData {
   );
 
   const insightMatch = text.match(
-    /KEY MARKET INSIGHT\s*:?\s*([\s\S]*?)(?=\n\s*(?:1\.\s+Market Overview|1\)\s+Market Overview|MARKET OVERVIEW))/i
+    /KEY MARKET INSIGHT\s*:?\s*([\s\S]*?)(?=\n\s*(?:1[.)]\s+Market Overview|MARKET OVERVIEW))/i
   );
 
   return {
@@ -158,6 +158,7 @@ function parseScoreData(text: string): ScoreData {
 
 function parseResearch(text: string): ResearchSection[] {
   const lines = text.split("\n");
+
   const sections: ResearchSection[] = [];
 
   let currentNumber = "";
@@ -194,6 +195,7 @@ function parseResearch(text: string): ResearchSection[] {
       if (currentContent.length > 0) {
         currentContent.push("");
       }
+
       continue;
     }
 
@@ -225,6 +227,7 @@ function parseResearch(text: string): ResearchSection[] {
       currentContent.push(
         cleanMarkdownText(markdownHeading[1])
       );
+
       continue;
     }
 
@@ -327,7 +330,7 @@ function ScoreCard({
   );
 }
 
-export default function ResearchPage() {
+function ResearchPageContent() {
   const searchParams = useSearchParams();
 
   const [business, setBusiness] = useState(
@@ -498,6 +501,7 @@ export default function ResearchPage() {
 
             <h1 className="mt-6 text-4xl font-black tracking-tight md:text-6xl">
               Research your market
+
               <span className="block bg-gradient-to-r from-cyan-300 via-blue-400 to-indigo-400 bg-clip-text text-transparent">
                 before you launch.
               </span>
@@ -799,9 +803,7 @@ export default function ResearchPage() {
                     <ScoreCard
                       icon="⚠️"
                       label="Market Risk"
-                      score={
-                        scoreData.marketRisk
-                      }
+                      score={scoreData.marketRisk}
                       type="risk"
                       description="Higher scores indicate greater market risk."
                     />
@@ -1076,5 +1078,25 @@ export default function ResearchPage() {
         </div>
       </footer>
     </main>
+  );
+}
+
+export default function ResearchPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-slate-50">
+          <div className="text-center">
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-cyan-500" />
+
+            <p className="mt-4 text-sm font-bold text-slate-600">
+              Loading LaunchIQ Research...
+            </p>
+          </div>
+        </main>
+      }
+    >
+      <ResearchPageContent />
+    </Suspense>
   );
 }
