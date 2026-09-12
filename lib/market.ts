@@ -17,7 +17,6 @@ export type MarketIntelligence = {
   opportunityLevel: string;
 };
 
-
 type MarketProfile = {
   population: number;
   gdp: number;
@@ -27,6 +26,14 @@ type MarketProfile = {
   marketSize: string;
 };
 
+/*
+ * PROTOTYPE MARKET DATABASE
+ *
+ * These figures are illustrative market assumptions
+ * used by the LaunchIQ prototype.
+ *
+ * They are NOT live market research.
+ */
 
 const marketDatabase: Record<
   string,
@@ -132,175 +139,624 @@ const marketDatabase: Record<
   },
 };
 
+/*
+ * COUNTRY ALIASES
+ */
 
-export function calculateMarketIntelligence(
-  inputs: MarketInputs
-): MarketIntelligence {
-
-  const countryKey =
-    inputs.country
+function normalizeCountry(
+  country: string
+): string {
+  const text =
+    country
       .toLowerCase()
       .trim();
 
-  const profile =
-    marketDatabase[countryKey] ||
-    marketDatabase["india"];
+  if (
+    text === "us" ||
+    text === "usa" ||
+    text.includes("united states") ||
+    text.includes("america")
+  ) {
+    return "usa";
+  }
 
+  if (
+    text === "uk" ||
+    text.includes("united kingdom") ||
+    text.includes("britain")
+  ) {
+    return "uk";
+  }
+
+  if (
+    text.includes("india") ||
+    text.includes("indian")
+  ) {
+    return "india";
+  }
+
+  if (
+    text.includes("singapore")
+  ) {
+    return "singapore";
+  }
+
+  if (
+    text.includes("australia")
+  ) {
+    return "australia";
+  }
+
+  if (
+    text.includes("canada")
+  ) {
+    return "canada";
+  }
+
+  if (
+    text.includes("germany")
+  ) {
+    return "germany";
+  }
+
+  if (
+    text.includes("france")
+  ) {
+    return "france";
+  }
+
+  if (
+    text.includes("uae") ||
+    text.includes("united arab emirates") ||
+    text.includes("dubai")
+  ) {
+    return "uae";
+  }
+
+  return text;
+}
+
+/*
+ * CLAMP SCORE
+ */
+
+function clamp(
+  value: number,
+  minimum = 20,
+  maximum = 95
+): number {
+  return Math.max(
+    minimum,
+    Math.min(value, maximum)
+  );
+}
+
+/*
+ * BUSINESS CATEGORY ADJUSTMENT
+ */
+
+function calculateBusinessAdjustment(
+  business: string
+): number {
+  const text =
+    business.toLowerCase();
+
+  let adjustment = 0;
 
   /*
-   * BASE MARKET OPPORTUNITY
-   */
-
-  let opportunity = 60;
-
-
-  /*
-   * INTERNET PENETRATION
+   * Digital businesses
    */
 
   if (
-    profile.internetPenetration >= 90
+    text.includes("ai") ||
+    text.includes("software") ||
+    text.includes("saas") ||
+    text.includes("technology") ||
+    text.includes("digital") ||
+    text.includes("app") ||
+    text.includes("platform")
   ) {
-    opportunity += 10;
-  } else if (
-    profile.internetPenetration >= 70
-  ) {
-    opportunity += 7;
-  } else if (
-    profile.internetPenetration >= 50
-  ) {
-    opportunity += 4;
+    adjustment += 7;
   }
 
+  /*
+   * Healthcare
+   */
+
+  if (
+    text.includes("health") ||
+    text.includes("medical") ||
+    text.includes("clinic") ||
+    text.includes("hospital") ||
+    text.includes("doctor")
+  ) {
+    adjustment += 4;
+  }
 
   /*
-   * DIGITAL ADOPTION
+   * Education
    */
+
+  if (
+    text.includes("education") ||
+    text.includes("learning") ||
+    text.includes("student") ||
+    text.includes("training")
+  ) {
+    adjustment += 4;
+  }
+
+  /*
+   * Financial technology
+   */
+
+  if (
+    text.includes("fintech") ||
+    text.includes("payment") ||
+    text.includes("banking") ||
+    text.includes("finance")
+  ) {
+    adjustment += 5;
+  }
+
+  /*
+   * Manufacturing / physical businesses
+   */
+
+  if (
+    text.includes("manufacturing") ||
+    text.includes("hardware") ||
+    text.includes("factory")
+  ) {
+    adjustment -= 4;
+  }
+
+  /*
+   * Local services
+   */
+
+  if (
+    text.includes("local") ||
+    text.includes("neighborhood")
+  ) {
+    adjustment -= 2;
+  }
+
+  return adjustment;
+}
+
+/*
+ * TARGET MARKET ADJUSTMENT
+ */
+
+function calculateMarketAdjustment(
+  market: string
+): number {
+  const text =
+    market.toLowerCase();
+
+  let adjustment = 0;
+
+  /*
+   * Large addressable markets
+   */
+
+  if (
+    text.includes("mass market") ||
+    text.includes("consumer") ||
+    text.includes("retail") ||
+    text.includes("general public")
+  ) {
+    adjustment += 5;
+  }
+
+  /*
+   * B2B / Enterprise
+   */
+
+  if (
+    text.includes("b2b") ||
+    text.includes("business") ||
+    text.includes("enterprise")
+  ) {
+    adjustment += 5;
+  }
+
+  /*
+   * Niche markets
+   *
+   * Niche markets can reduce total size,
+   * but may improve focus.
+   */
+
+  if (
+    text.includes("niche") ||
+    text.includes("specialized") ||
+    text.includes("specific")
+  ) {
+    adjustment += 2;
+  }
+
+  /*
+   * Global markets
+   */
+
+  if (
+    text.includes("global") ||
+    text.includes("international")
+  ) {
+    adjustment += 5;
+  }
+
+  /*
+   * Emerging markets
+   */
+
+  if (
+    text.includes("emerging") ||
+    text.includes("new market")
+  ) {
+    adjustment += 4;
+  }
+
+  /*
+   * Small market
+   */
+
+  if (
+    text.includes("small") ||
+    text.includes("limited")
+  ) {
+    adjustment -= 5;
+  }
+
+  return adjustment;
+}
+
+/*
+ * MARKET SIZE ADJUSTMENT
+ */
+
+function calculateMarketSizeAdjustment(
+  profile: MarketProfile
+): number {
+  let adjustment = 0;
+
+  if (
+    profile.marketSize ===
+    "Very Large"
+  ) {
+    adjustment += 8;
+  } else if (
+    profile.marketSize ===
+    "Large"
+  ) {
+    adjustment += 5;
+  } else if (
+    profile.marketSize ===
+    "Medium"
+  ) {
+    adjustment += 2;
+  }
+
+  return adjustment;
+}
+
+/*
+ * DIGITAL ADOPTION ADJUSTMENT
+ */
+
+function calculateDigitalAdjustment(
+  profile: MarketProfile,
+  business: string
+): number {
+  const text =
+    business.toLowerCase();
+
+  const digitalBusiness =
+    text.includes("ai") ||
+    text.includes("software") ||
+    text.includes("saas") ||
+    text.includes("app") ||
+    text.includes("digital") ||
+    text.includes("technology") ||
+    text.includes("platform");
+
+  if (!digitalBusiness) {
+    return 0;
+  }
 
   if (
     profile.digitalAdoption >= 90
   ) {
-    opportunity += 10;
-  } else if (
+    return 8;
+  }
+
+  if (
     profile.digitalAdoption >= 80
   ) {
-    opportunity += 7;
-  } else {
-    opportunity += 4;
+    return 5;
   }
 
+  if (
+    profile.digitalAdoption >= 70
+  ) {
+    return 2;
+  }
 
-  /*
-   * MARKET GROWTH
-   */
+  return -3;
+}
 
+/*
+ * INTERNET PENETRATION ADJUSTMENT
+ */
+
+function calculateInternetAdjustment(
+  profile: MarketProfile,
+  business: string
+): number {
+  const text =
+    business.toLowerCase();
+
+  const digitalBusiness =
+    text.includes("ai") ||
+    text.includes("software") ||
+    text.includes("saas") ||
+    text.includes("app") ||
+    text.includes("digital") ||
+    text.includes("online") ||
+    text.includes("technology");
+
+  if (!digitalBusiness) {
+    return 0;
+  }
+
+  if (
+    profile.internetPenetration >= 90
+  ) {
+    return 7;
+  }
+
+  if (
+    profile.internetPenetration >= 70
+  ) {
+    return 4;
+  }
+
+  if (
+    profile.internetPenetration >= 50
+  ) {
+    return 1;
+  }
+
+  return -4;
+}
+
+/*
+ * MARKET GROWTH ADJUSTMENT
+ */
+
+function calculateGrowthAdjustment(
+  profile: MarketProfile
+): number {
   if (
     profile.marketGrowth >= 7
   ) {
-    opportunity += 10;
-  } else if (
+    return 10;
+  }
+
+  if (
+    profile.marketGrowth >= 5
+  ) {
+    return 8;
+  }
+
+  if (
     profile.marketGrowth >= 4
   ) {
-    opportunity += 7;
-  } else if (
+    return 6;
+  }
+
+  if (
     profile.marketGrowth >= 2
   ) {
-    opportunity += 4;
+    return 3;
   }
-
-
-  /*
-   * BUSINESS CATEGORY
-   */
-
-  const business =
-    inputs.business.toLowerCase();
 
   if (
-    business.includes("ai") ||
-    business.includes("software") ||
-    business.includes("technology") ||
-    business.includes("digital")
+    profile.marketGrowth >= 1
   ) {
-    opportunity += 5;
+    return 1;
   }
 
+  return -2;
+}
 
-  opportunity = Math.min(
-    95,
-    opportunity
-  );
+/*
+ * GROWTH OUTLOOK
+ */
 
+function getGrowthOutlook(
+  growth: number
+): string {
+  if (growth >= 7) {
+    return "High-growth market";
+  }
 
+  if (growth >= 5) {
+    return "Strong growth outlook";
+  }
+
+  if (growth >= 3) {
+    return "Moderate growth outlook";
+  }
+
+  if (growth >= 1) {
+    return "Stable growth outlook";
+  }
+
+  return "Slow-growth market";
+}
+
+/*
+ * OPPORTUNITY LEVEL
+ */
+
+function getOpportunityLevel(
+  opportunity: number
+): string {
+  if (opportunity >= 85) {
+    return "Excellent Opportunity";
+  }
+
+  if (opportunity >= 75) {
+    return "Strong Opportunity";
+  }
+
+  if (opportunity >= 65) {
+    return "Moderate Opportunity";
+  }
+
+  if (opportunity >= 50) {
+    return "Selective Opportunity";
+  }
+
+  return "Challenging Opportunity";
+}
+
+/*
+ * MAIN MARKET INTELLIGENCE ENGINE
+ */
+
+export function calculateMarketIntelligence(
+  inputs: MarketInputs
+): MarketIntelligence {
   /*
-   * GROWTH OUTLOOK
+   * Normalize country
    */
 
-  let growthOutlook = "";
-
-  if (
-    profile.marketGrowth >= 7
-  ) {
-    growthOutlook =
-      "High-growth market";
-  } else if (
-    profile.marketGrowth >= 4
-  ) {
-    growthOutlook =
-      "Strong growth outlook";
-  } else if (
-    profile.marketGrowth >= 2
-  ) {
-    growthOutlook =
-      "Moderate growth outlook";
-  } else {
-    growthOutlook =
-      "Slow-growth market";
-  }
-
+  const countryKey =
+    normalizeCountry(
+      inputs.country
+    );
 
   /*
-   * OPPORTUNITY LEVEL
+   * Select market profile
    */
 
-  let opportunityLevel = "";
+  const profile =
+    marketDatabase[countryKey] ||
+    marketDatabase.india;
 
-  if (
-    opportunity >= 85
-  ) {
-    opportunityLevel =
-      "Excellent Opportunity";
-  } else if (
-    opportunity >= 75
-  ) {
-    opportunityLevel =
-      "Strong Opportunity";
-  } else if (
-    opportunity >= 65
-  ) {
-    opportunityLevel =
-      "Moderate Opportunity";
-  } else {
-    opportunityLevel =
-      "Challenging Opportunity";
-  }
+  /*
+   * Base opportunity
+   */
 
+  let opportunity = 50;
+
+  /*
+   * Market fundamentals
+   */
+
+  opportunity +=
+    calculateMarketSizeAdjustment(
+      profile
+    );
+
+  opportunity +=
+    calculateInternetAdjustment(
+      profile,
+      inputs.business
+    );
+
+  opportunity +=
+    calculateDigitalAdjustment(
+      profile,
+      inputs.business
+    );
+
+  opportunity +=
+    calculateGrowthAdjustment(
+      profile
+    );
+
+  /*
+   * Business-specific opportunity
+   */
+
+  opportunity +=
+    calculateBusinessAdjustment(
+      inputs.business
+    );
+
+  /*
+   * Target-market opportunity
+   */
+
+  opportunity +=
+    calculateMarketAdjustment(
+      inputs.market
+    );
+
+  /*
+   * Final score
+   */
+
+  opportunity =
+    Math.round(
+      clamp(
+        opportunity
+      )
+    );
+
+  /*
+   * Growth outlook
+   */
+
+  const growthOutlook =
+    getGrowthOutlook(
+      profile.marketGrowth
+    );
+
+  /*
+   * Opportunity level
+   */
+
+  const opportunityLevel =
+    getOpportunityLevel(
+      opportunity
+    );
+
+  /*
+   * Return intelligence
+   */
 
   return {
     country: inputs.country,
-    population: profile.population,
-    gdp: profile.gdp,
+
+    population:
+      profile.population,
+
+    gdp:
+      profile.gdp,
+
     internetPenetration:
       profile.internetPenetration,
+
     digitalAdoption:
       profile.digitalAdoption,
+
     marketGrowth:
       profile.marketGrowth,
+
     marketOpportunity:
       opportunity,
+
     marketSize:
       profile.marketSize,
+
     growthOutlook,
+
     opportunityLevel,
   };
 }

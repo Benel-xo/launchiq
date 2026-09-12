@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -37,14 +38,18 @@ function MetricCard({
         {icon}
       </div>
 
-      <p className="text-sm font-medium text-slate-500">{title}</p>
+      <p className="text-sm font-medium text-slate-500">
+        {title}
+      </p>
 
       <p className="mt-2 break-words text-2xl font-bold text-slate-900">
         {value}
       </p>
 
       {subtitle && (
-        <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+        <p className="mt-1 text-sm text-slate-500">
+          {subtitle}
+        </p>
       )}
     </div>
   );
@@ -62,7 +67,9 @@ function ScoreBar({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-slate-700">{name}</span>
+        <span className="text-sm font-semibold text-slate-700">
+          {name}
+        </span>
 
         <span className="text-sm font-bold text-slate-900">
           {score}/100
@@ -72,7 +79,9 @@ function ScoreBar({
       <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
         <div
           className={`h-full rounded-full bg-gradient-to-r ${gradient} transition-all duration-700`}
-          style={{ width: `${score}%` }}
+          style={{
+            width: `${score}%`,
+          }}
         />
       </div>
     </div>
@@ -93,23 +102,32 @@ function RiskCard({
   let badgeStyle =
     "border-emerald-200 bg-emerald-100 text-emerald-700";
 
-  let barStyle = "from-emerald-400 to-green-500";
+  let barStyle =
+    "from-emerald-400 to-green-500";
 
   if (score >= 60) {
-    badgeStyle = "border-orange-200 bg-orange-100 text-orange-700";
-    barStyle = "from-orange-400 to-amber-500";
+    badgeStyle =
+      "border-orange-200 bg-orange-100 text-orange-700";
+
+    barStyle =
+      "from-orange-400 to-amber-500";
   }
 
   if (score >= 75) {
-    badgeStyle = "border-red-200 bg-red-100 text-red-700";
-    barStyle = "from-red-400 to-rose-500";
+    badgeStyle =
+      "border-red-200 bg-red-100 text-red-700";
+
+    barStyle =
+      "from-red-400 to-rose-500";
   }
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="font-bold text-slate-900">{name}</h3>
+          <h3 className="font-bold text-slate-900">
+            {name}
+          </h3>
 
           <p className="mt-2 text-sm leading-6 text-slate-500">
             {explanation}
@@ -117,7 +135,9 @@ function RiskCard({
         </div>
 
         <div className="shrink-0 text-right">
-          <p className="text-2xl font-bold text-slate-900">{score}</p>
+          <p className="text-2xl font-bold text-slate-900">
+            {score}
+          </p>
 
           <span
             className={`mt-1 inline-block rounded-full border px-2.5 py-1 text-xs font-bold ${badgeStyle}`}
@@ -130,7 +150,9 @@ function RiskCard({
       <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-slate-100">
         <div
           className={`h-full rounded-full bg-gradient-to-r ${barStyle}`}
-          style={{ width: `${score}%` }}
+          style={{
+            width: `${score}%`,
+          }}
         />
       </div>
     </div>
@@ -161,6 +183,55 @@ function SectionHeader({
       </p>
     </div>
   );
+}
+
+function getDecisionSignal(score: number) {
+  if (score >= 80) {
+    return {
+      label: "Launch Candidate",
+      description:
+        "The venture shows strong overall potential and may be suitable for structured launch preparation.",
+      style:
+        "border-emerald-200 bg-emerald-50 text-emerald-700",
+      icon: "🚀",
+    };
+  }
+
+  if (score >= 65) {
+    return {
+      label: "Validate Before Launch",
+      description:
+        "The opportunity is promising, but important assumptions should be validated before committing significant capital.",
+      style:
+        "border-amber-200 bg-amber-50 text-amber-700",
+      icon: "🧪",
+    };
+  }
+
+  return {
+    label: "Reconsider & Validate",
+    description:
+      "The current assumptions indicate meaningful uncertainty. Validate the core business thesis before scaling investment.",
+    style:
+      "border-red-200 bg-red-50 text-red-700",
+    icon: "⚠️",
+  };
+}
+
+function getInvestorTone(score: number) {
+  if (score >= 85) {
+    return "Strong investor profile";
+  }
+
+  if (score >= 75) {
+    return "Positive investor profile";
+  }
+
+  if (score >= 65) {
+    return "Mixed investor profile";
+  }
+
+  return "High caution profile";
 }
 
 function ResultsContent() {
@@ -198,37 +269,48 @@ function ResultsContent() {
     model,
   });
 
-  const financialData = calculateFinancialModel({
-    business,
-    investment,
-    model,
-  });
+  const financialData =
+    calculateFinancialModel({
+      business,
+      investment,
+      model,
+    });
 
-  const financialScenarios = calculateFinancialScenarios({
-    business,
-    investment,
-    model,
-  });
+  const financialScenarios =
+    calculateFinancialScenarios({
+      business,
+      investment,
+      model,
+    });
 
-  const marketData = calculateMarketIntelligence({
-    business,
-    country,
-    market,
-  });
+  const marketData =
+    calculateMarketIntelligence({
+      business,
+      country,
+      market,
+    });
 
-  const competitorData = calculateCompetitorIntelligence({
-    business,
-    country,
-    market,
-  });
+  const competitorData =
+    calculateCompetitorIntelligence({
+      business,
+      country,
+      market,
+    });
 
-  const riskData = calculateRiskIntelligence({
-    business,
-    country,
-    market,
-    investment,
-    model,
-  });
+  const riskData =
+    calculateRiskIntelligence({
+      business,
+      country,
+      market,
+      investment,
+      model,
+    });
+
+  const decision =
+    getDecisionSignal(score.total);
+
+  const investorTone =
+    getInvestorTone(score.total);
 
   async function analyzeWithAI() {
     setAiLoading(true);
@@ -236,46 +318,57 @@ function ResultsContent() {
     setAdvice("");
 
     try {
-      const response = await fetch("/api/advisor", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          business,
-          country,
-          market,
-          investment,
-          model,
+      const response = await fetch(
+        "/api/advisor",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            business,
+            country,
+            market,
+            investment,
+            model,
 
-          ventureScore: score.total,
+            ventureScore:
+              score.total,
 
-          marketOpportunity: marketData.marketOpportunity,
+            marketOpportunity:
+              marketData.marketOpportunity,
 
-          competitionPressure:
-            competitorData.competitionPressure,
+            competitionPressure:
+              competitorData.competitionPressure,
 
-          overallRisk: riskData.overallRisk,
+            overallRisk:
+              riskData.overallRisk,
 
-          monthlyRevenue:
-            financialData.monthlyRevenue,
+            monthlyRevenue:
+              financialData.monthlyRevenue,
 
-          monthlyExpenses:
-            financialData.monthlyExpenses,
+            monthlyExpenses:
+              financialData.monthlyExpenses,
 
-          runway: financialData.runway,
-        }),
-      });
+            runway:
+              financialData.runway,
+          }),
+        }
+      );
 
-      const responseText = await response.text();
+      const responseText =
+        await response.text();
 
       let data;
 
       try {
-        data = responseText ? JSON.parse(responseText) : null;
+        data = responseText
+          ? JSON.parse(responseText)
+          : null;
       } catch {
         throw new Error(
-          responseText || "The AI server returned an invalid response."
+          responseText ||
+            "The AI server returned an invalid response."
         );
       }
 
@@ -309,31 +402,48 @@ function ResultsContent() {
   return (
     <main className="min-h-screen bg-slate-50">
 
-      {/* ============================= */}
-      {/* HERO HEADER */}
-      {/* ============================= */}
+      {/* ===================================================== */}
+      {/* HERO */}
+      {/* ===================================================== */}
 
-      <section className="relative overflow-hidden bg-slate-950 px-6 py-12 text-white md:py-16">
+      <section className="relative overflow-hidden bg-slate-950 px-6 py-10 text-white md:py-14">
+
         <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-blue-600/20 blur-3xl" />
 
         <div className="absolute -right-20 top-10 h-80 w-80 rounded-full bg-purple-600/20 blur-3xl" />
 
         <div className="relative mx-auto max-w-7xl">
 
-          <div className="mb-8 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 text-xl font-bold shadow-lg shadow-blue-500/20">
-              L
-            </div>
+          {/* TOP NAV */}
 
-            <div>
-              <p className="text-lg font-bold">
-                LaunchIQ
-              </p>
+          <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
 
-              <p className="text-xs text-slate-400">
-                AI Venture Intelligence Engine
-              </p>
-            </div>
+            <Link
+              href="/"
+              className="flex items-center gap-3"
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 text-xl font-bold shadow-lg shadow-blue-500/20">
+                L
+              </div>
+
+              <div>
+                <p className="text-lg font-bold">
+                  LaunchIQ
+                </p>
+
+                <p className="text-xs text-slate-400">
+                  AI Venture Intelligence Engine
+                </p>
+              </div>
+            </Link>
+
+            <Link
+              href="/analyze"
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10"
+            >
+              ← Analyze another idea
+            </Link>
+
           </div>
 
           <div className="grid gap-10 lg:grid-cols-3 lg:items-center">
@@ -351,9 +461,9 @@ function ResultsContent() {
               </h1>
 
               <p className="mt-5 max-w-2xl text-base leading-7 text-slate-300 md:text-lg">
-                A comprehensive venture analysis covering
-                market opportunity, financial potential,
-                competition and business risk.
+                A structured venture assessment covering
+                market opportunity, competitive pressure,
+                financial potential and business risk.
               </p>
 
               <div className="mt-7 flex flex-wrap gap-3">
@@ -377,7 +487,7 @@ function ResultsContent() {
               </div>
             </div>
 
-            {/* HERO SCORE */}
+            {/* SCORE */}
 
             <div className="rounded-3xl border border-white/10 bg-white/5 p-7 backdrop-blur-xl">
 
@@ -402,12 +512,14 @@ function ResultsContent() {
               </p>
 
               <div className="mt-6 h-3 overflow-hidden rounded-full bg-white/10">
+
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-purple-500"
                   style={{
                     width: `${score.total}%`,
                   }}
                 />
+
               </div>
 
               <p className="mt-3 text-xs text-slate-400">
@@ -415,19 +527,191 @@ function ResultsContent() {
               </p>
 
             </div>
+
           </div>
         </div>
       </section>
 
-      {/* ============================= */}
-      {/* MAIN CONTENT */}
-      {/* ============================= */}
+      {/* ===================================================== */}
+      {/* MAIN */}
+      {/* ===================================================== */}
 
       <div className="mx-auto max-w-7xl px-6 py-12">
 
-        {/* ============================= */}
-        {/* SCORE BREAKDOWN */}
-        {/* ============================= */}
+        {/* ================================================= */}
+        {/* INVESTOR DECISION */}
+        {/* ================================================= */}
+
+        <section className="mb-14">
+
+          <SectionHeader
+            eyebrow="Executive Decision"
+            title="What does the score mean?"
+            description="LaunchIQ converts the underlying intelligence signals into a practical decision lens for founders."
+          />
+
+          <div className="grid gap-5 lg:grid-cols-3">
+
+            {/* DECISION */}
+
+            <div
+              className={`rounded-3xl border p-7 shadow-sm ${decision.style}`}
+            >
+
+              <div className="flex items-center justify-between">
+
+                <div className="text-3xl">
+                  {decision.icon}
+                </div>
+
+                <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-bold">
+                  Decision signal
+                </span>
+
+              </div>
+
+              <h3 className="mt-5 text-2xl font-black">
+                {decision.label}
+              </h3>
+
+              <p className="mt-3 text-sm leading-6 opacity-80">
+                {decision.description}
+              </p>
+
+            </div>
+
+            {/* INVESTOR PROFILE */}
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
+
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
+                Investor Lens
+              </p>
+
+              <h3 className="mt-3 text-2xl font-black text-slate-900">
+                {investorTone}
+              </h3>
+
+              <p className="mt-3 text-sm leading-6 text-slate-500">
+                The current score reflects the combined
+                effect of market attractiveness, economics,
+                competitive positioning, regulation and risk.
+              </p>
+
+            </div>
+
+            {/* RISK */}
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
+
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-600">
+                Risk Lens
+              </p>
+
+              <div className="mt-3 flex items-end gap-2">
+
+                <span className="text-4xl font-black text-slate-900">
+                  {riskData.overallRisk}
+                </span>
+
+                <span className="mb-1 text-sm text-slate-400">
+                  /100 risk
+                </span>
+
+              </div>
+
+              <p className="mt-2 text-sm font-semibold text-slate-700">
+                {riskData.overallLevel} risk profile
+              </p>
+
+              <p className="mt-3 text-sm leading-6 text-slate-500">
+                Lower risk scores indicate a more favorable
+                risk profile.
+              </p>
+
+            </div>
+
+          </div>
+        </section>
+
+        {/* ================================================= */}
+        {/* INVESTOR SNAPSHOT */}
+        {/* ================================================= */}
+
+        <section className="mb-14">
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm md:p-9">
+
+            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+
+              <div>
+
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
+                  Investor Snapshot
+                </p>
+
+                <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-900 md:text-3xl">
+                  The numbers behind the opportunity
+                </h2>
+
+              </div>
+
+              <div className="rounded-2xl bg-slate-50 px-5 py-4 text-sm text-slate-600">
+                Prototype intelligence
+              </div>
+
+            </div>
+
+            <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+              <div className="rounded-2xl bg-blue-50 p-5">
+                <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                  Venture Score
+                </p>
+
+                <p className="mt-2 text-3xl font-black text-slate-900">
+                  {score.total}/100
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-emerald-50 p-5">
+                <p className="text-xs font-bold uppercase tracking-wider text-emerald-600">
+                  Market Opportunity
+                </p>
+
+                <p className="mt-2 text-3xl font-black text-slate-900">
+                  {marketData.marketOpportunity}/100
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-purple-50 p-5">
+                <p className="text-xs font-bold uppercase tracking-wider text-purple-600">
+                  Competition
+                </p>
+
+                <p className="mt-2 text-3xl font-black text-slate-900">
+                  {competitorData.competitionPressure}/100
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-orange-50 p-5">
+                <p className="text-xs font-bold uppercase tracking-wider text-orange-600">
+                  Overall Risk
+                </p>
+
+                <p className="mt-2 text-3xl font-black text-slate-900">
+                  {riskData.overallRisk}/100
+                </p>
+              </div>
+
+            </div>
+
+          </div>
+        </section>
+
+        {/* ================================================= */}
+        {/* VENTURE SCORE */}
+        {/* ================================================= */}
 
         <section className="mb-14">
 
@@ -439,7 +723,7 @@ function ResultsContent() {
 
           <div className="grid gap-6 lg:grid-cols-3">
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm lg:col-span-1">
+            <div className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
 
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 text-2xl text-white shadow-lg shadow-blue-500/20">
                 ✦
@@ -454,6 +738,18 @@ function ResultsContent() {
                 market, competition, economics, regulation
                 and risk.
               </p>
+
+              <div className="mt-6 rounded-2xl bg-slate-50 p-4">
+
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Decision signal
+                </p>
+
+                <p className="mt-1 text-sm font-bold text-slate-900">
+                  {decision.label}
+                </p>
+
+              </div>
 
             </div>
 
@@ -493,12 +789,13 @@ function ResultsContent() {
 
               </div>
             </div>
+
           </div>
         </section>
 
-        {/* ============================= */}
+        {/* ================================================= */}
         {/* MARKET INTELLIGENCE */}
-        {/* ============================= */}
+        {/* ================================================= */}
 
         <section className="mb-14">
 
@@ -571,9 +868,9 @@ function ResultsContent() {
           </div>
         </section>
 
-        {/* ============================= */}
+        {/* ================================================= */}
         {/* COMPETITOR INTELLIGENCE */}
-        {/* ============================= */}
+        {/* ================================================= */}
 
         <section className="mb-14">
 
@@ -635,7 +932,9 @@ function ResultsContent() {
                           </p>
 
                         </div>
+
                       </div>
+
                     </div>
 
                     <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600">
@@ -647,6 +946,7 @@ function ResultsContent() {
                   <div className="mt-6 space-y-4">
 
                     <div>
+
                       <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
                         Pricing
                       </p>
@@ -654,6 +954,7 @@ function ResultsContent() {
                       <p className="mt-1 text-sm text-slate-700">
                         {competitor.pricing}
                       </p>
+
                     </div>
 
                     <div className="rounded-xl bg-emerald-50 p-4">
@@ -688,9 +989,9 @@ function ResultsContent() {
           </div>
         </section>
 
-        {/* ============================= */}
+        {/* ================================================= */}
         {/* FINANCIAL INTELLIGENCE */}
-        {/* ============================= */}
+        {/* ================================================= */}
 
         <section className="mb-14">
 
@@ -807,117 +1108,179 @@ function ResultsContent() {
             </div>
           </div>
 
-          {/* FINANCIAL SCENARIOS */}
+          {/* SCENARIOS */}
+
           <div className="mt-6">
+
             <div className="mb-5">
+
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
                 Scenario Planning
               </p>
+
               <h3 className="mt-2 text-xl font-bold tracking-tight text-slate-900 md:text-2xl">
                 Three possible financial paths
               </h3>
+
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
                 Compare conservative, base-case and aggressive assumptions before making a launch decision.
               </p>
+
             </div>
 
             <div className="grid gap-5 lg:grid-cols-3">
-              {financialScenarios.map((scenario) => {
-                const isBase = scenario.name === "Base Case";
-                const isAggressive = scenario.name === "Aggressive";
 
-                const cardStyle = isBase
-                  ? "border-blue-200 bg-gradient-to-br from-blue-50 via-white to-indigo-50"
-                  : isAggressive
-                    ? "border-purple-200 bg-gradient-to-br from-purple-50 via-white to-fuchsia-50"
-                    : "border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-teal-50";
+              {financialScenarios.map(
+                (scenario) => {
 
-                const badgeStyle = isBase
-                  ? "bg-blue-100 text-blue-700"
-                  : isAggressive
-                    ? "bg-purple-100 text-purple-700"
-                    : "bg-emerald-100 text-emerald-700";
+                  const isBase =
+                    scenario.name ===
+                    "Base Case";
 
-                return (
-                  <div
-                    key={scenario.name}
-                    className={`rounded-3xl border p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${cardStyle}`}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-lg font-bold text-slate-900">
-                          {scenario.name}
-                        </p>
-                        <p className="mt-1 text-sm leading-6 text-slate-500">
-                          {scenario.description}
-                        </p>
-                      </div>
+                  const isAggressive =
+                    scenario.name ===
+                    "Aggressive";
 
-                      <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${badgeStyle}`}>
-                        {isBase ? "Recommended baseline" : isAggressive ? "Upside case" : "Downside case"}
-                      </span>
-                    </div>
+                  const cardStyle =
+                    isBase
+                      ? "border-blue-200 bg-gradient-to-br from-blue-50 via-white to-indigo-50"
+                      : isAggressive
+                        ? "border-purple-200 bg-gradient-to-br from-purple-50 via-white to-fuchsia-50"
+                        : "border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-teal-50";
 
-                    <div className="mt-6 grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl bg-white/80 p-4">
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Revenue
-                        </p>
-                        <p className="mt-1 text-lg font-bold text-slate-900">
-                          ₹{scenario.monthlyRevenue.toLocaleString()}
-                        </p>
-                        <p className="text-xs text-slate-500">per month</p>
-                      </div>
+                  const badgeStyle =
+                    isBase
+                      ? "bg-blue-100 text-blue-700"
+                      : isAggressive
+                        ? "bg-purple-100 text-purple-700"
+                        : "bg-emerald-100 text-emerald-700";
 
-                      <div className="rounded-2xl bg-white/80 p-4">
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Expenses
-                        </p>
-                        <p className="mt-1 text-lg font-bold text-slate-900">
-                          ₹{scenario.monthlyExpenses.toLocaleString()}
-                        </p>
-                        <p className="text-xs text-slate-500">per month</p>
-                      </div>
+                  return (
+                    <div
+                      key={scenario.name}
+                      className={`rounded-3xl border p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${cardStyle}`}
+                    >
 
-                      <div className="rounded-2xl bg-white/80 p-4">
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Runway
-                        </p>
-                        <p className="mt-1 text-lg font-bold text-slate-900">
-                          {scenario.runway} months
-                        </p>
-                      </div>
+                      <div className="flex items-start justify-between gap-4">
 
-                      <div className="rounded-2xl bg-white/80 p-4">
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          ROI
-                        </p>
-                        <p className={`mt-1 text-lg font-bold ${scenario.roi >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                          {scenario.roi}%
-                        </p>
-                      </div>
-                    </div>
+                        <div>
 
-                    <div className="mt-4 rounded-2xl bg-white/70 p-4">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-semibold text-slate-600">
-                          Break-even revenue
+                          <p className="text-lg font-bold text-slate-900">
+                            {scenario.name}
+                          </p>
+
+                          <p className="mt-1 text-sm leading-6 text-slate-500">
+                            {scenario.description}
+                          </p>
+
+                        </div>
+
+                        <span
+                          className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${badgeStyle}`}
+                        >
+                          {isBase
+                            ? "Recommended baseline"
+                            : isAggressive
+                              ? "Upside case"
+                              : "Downside case"}
                         </span>
-                        <span className="font-bold text-slate-900">
-                          ₹{scenario.breakEvenRevenue.toLocaleString()}
-                        </span>
+
                       </div>
+
+                      <div className="mt-6 grid grid-cols-2 gap-3">
+
+                        <div className="rounded-2xl bg-white/80 p-4">
+
+                          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Revenue
+                          </p>
+
+                          <p className="mt-1 text-lg font-bold text-slate-900">
+                            ₹{scenario.monthlyRevenue.toLocaleString()}
+                          </p>
+
+                          <p className="text-xs text-slate-500">
+                            per month
+                          </p>
+
+                        </div>
+
+                        <div className="rounded-2xl bg-white/80 p-4">
+
+                          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Expenses
+                          </p>
+
+                          <p className="mt-1 text-lg font-bold text-slate-900">
+                            ₹{scenario.monthlyExpenses.toLocaleString()}
+                          </p>
+
+                          <p className="text-xs text-slate-500">
+                            per month
+                          </p>
+
+                        </div>
+
+                        <div className="rounded-2xl bg-white/80 p-4">
+
+                          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Runway
+                          </p>
+
+                          <p className="mt-1 text-lg font-bold text-slate-900">
+                            {scenario.runway} months
+                          </p>
+
+                        </div>
+
+                        <div className="rounded-2xl bg-white/80 p-4">
+
+                          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            ROI
+                          </p>
+
+                          <p
+                            className={`mt-1 text-lg font-bold ${
+                              scenario.roi >= 0
+                                ? "text-emerald-600"
+                                : "text-rose-600"
+                            }`}
+                          >
+                            {scenario.roi}%
+                          </p>
+
+                        </div>
+
+                      </div>
+
+                      <div className="mt-4 rounded-2xl bg-white/70 p-4">
+
+                        <div className="flex items-center justify-between text-sm">
+
+                          <span className="font-semibold text-slate-600">
+                            Break-even revenue
+                          </span>
+
+                          <span className="font-bold text-slate-900">
+                            ₹{scenario.breakEvenRevenue.toLocaleString()}
+                          </span>
+
+                        </div>
+
+                      </div>
+
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                }
+              )}
+
             </div>
           </div>
         </section>
 
-        {/* ============================= */}
+        {/* ================================================= */}
         {/* RISK INTELLIGENCE */}
-        {/* ============================= */}
+        {/* ================================================= */}
 
         <section className="mb-14">
 
@@ -950,6 +1313,7 @@ function ResultsContent() {
                     </p>
 
                   </div>
+
                 </div>
 
                 <p className="mt-5 text-5xl font-black">
@@ -958,6 +1322,7 @@ function ResultsContent() {
                   <span className="text-xl text-slate-500">
                     /100
                   </span>
+
                 </p>
 
               </div>
@@ -988,7 +1353,9 @@ function ResultsContent() {
                 </p>
 
               </div>
+
             </div>
+
           </div>
 
           <div className="grid gap-5 lg:grid-cols-2">
@@ -1031,9 +1398,104 @@ function ResultsContent() {
           </div>
         </section>
 
-        {/* ============================= */}
-        {/* AI VENTURE ADVISOR */}
-        {/* ============================= */}
+        {/* ================================================= */}
+        {/* MARKET RESEARCH CTA */}
+        {/* ================================================= */}
+
+        <section className="mb-14 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+
+          <div className="grid lg:grid-cols-2">
+
+            <div className="bg-gradient-to-br from-slate-950 via-indigo-950 to-blue-950 p-8 text-white md:p-10">
+
+              <div className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold">
+                🔎 NEXT STEP
+              </div>
+
+              <h2 className="mt-5 text-3xl font-black md:text-4xl">
+                Go deeper with Market Research
+              </h2>
+
+              <p className="mt-4 max-w-xl text-sm leading-7 text-slate-300 md:text-base">
+                Explore a dedicated market intelligence report
+                covering demand, growth drivers, customer
+                opportunity, challenges, competitive landscape
+                and regulatory considerations.
+              </p>
+
+              <Link
+                href={`/research?business=${encodeURIComponent(
+                  business
+                )}&country=${encodeURIComponent(
+                  country
+                )}&industry=${encodeURIComponent(
+                  searchParams.get("industry") || ""
+                )}&market=${encodeURIComponent(
+                  market
+                )}`}
+                className="mt-7 inline-flex items-center justify-center rounded-2xl bg-white px-6 py-3.5 text-sm font-bold text-indigo-700 shadow-xl transition hover:-translate-y-0.5 hover:bg-blue-50"
+              >
+                Open Market Research →
+              </Link>
+
+            </div>
+
+            <div className="p-8 md:p-10">
+
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
+                Decision Lens
+              </p>
+
+              <h3 className="mt-3 text-2xl font-black text-slate-900">
+                Validate the assumptions that matter most
+              </h3>
+
+              <div className="mt-6 space-y-4">
+
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="font-bold text-slate-900">
+                    Market
+                  </p>
+
+                  <p className="mt-1 text-sm leading-6 text-slate-500">
+                    Validate customer demand and willingness
+                    to pay.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="font-bold text-slate-900">
+                    Competition
+                  </p>
+
+                  <p className="mt-1 text-sm leading-6 text-slate-500">
+                    Determine whether the venture has a
+                    meaningful differentiation advantage.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="font-bold text-slate-900">
+                    Economics
+                  </p>
+
+                  <p className="mt-1 text-sm leading-6 text-slate-500">
+                    Test pricing, acquisition costs and
+                    break-even assumptions.
+                  </p>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* ================================================= */}
+        {/* AI ADVISOR */}
+        {/* ================================================= */}
 
         <section className="mb-10 overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white shadow-2xl">
 
@@ -1052,6 +1514,22 @@ function ResultsContent() {
               practical AI-generated strategy for launching,
               validating and growing your venture.
             </p>
+
+            <div className="mt-6 flex flex-wrap gap-3 text-xs text-blue-100">
+
+              <span className="rounded-full border border-white/10 bg-white/10 px-3 py-2">
+                Venture Score: {score.total}
+              </span>
+
+              <span className="rounded-full border border-white/10 bg-white/10 px-3 py-2">
+                Market: {marketData.marketOpportunity}
+              </span>
+
+              <span className="rounded-full border border-white/10 bg-white/10 px-3 py-2">
+                Risk: {riskData.overallRisk}
+              </span>
+
+            </div>
 
             <button
               type="button"
@@ -1087,8 +1565,6 @@ function ResultsContent() {
 
           </div>
 
-          {/* AI RESULT */}
-
           {advice && (
             <div className="border-t border-white/10 bg-white/10 p-8 backdrop-blur-md md:p-10">
 
@@ -1109,6 +1585,7 @@ function ResultsContent() {
                   </h3>
 
                 </div>
+
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-6">
@@ -1131,9 +1608,9 @@ function ResultsContent() {
 
         </section>
 
-        {/* ============================= */}
-        {/* NOTICE */}
-        {/* ============================= */}
+        {/* ================================================= */}
+        {/* PROTOTYPE NOTICE */}
+        {/* ================================================= */}
 
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
@@ -1150,17 +1627,36 @@ function ResultsContent() {
               </h3>
 
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                LaunchIQ is currently using prototype
-                rule-based calculations and illustrative
-                market assumptions. Future versions can
-                connect these modules to live market data,
-                competitor intelligence, financial datasets
-                and more advanced AI analysis.
+                LaunchIQ currently uses prototype rule-based
+                calculations, illustrative market assumptions
+                and AI-generated decision support. These outputs
+                are intended for exploration and should be
+                validated with real customer, financial,
+                competitive and regulatory research before
+                making major investment decisions.
               </p>
 
             </div>
+
           </div>
+
         </section>
+
+        {/* ================================================= */}
+        {/* FOOTER */}
+        {/* ================================================= */}
+
+        <footer className="mt-10 border-t border-slate-200 pt-8 text-center">
+
+          <p className="text-sm text-slate-500">
+            © 2026 LaunchIQ — AI Venture Intelligence Engine
+          </p>
+
+          <p className="mt-2 text-xs text-slate-400">
+            Built for smarter venture decisions.
+          </p>
+
+        </footer>
 
       </div>
     </main>

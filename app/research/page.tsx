@@ -3,429 +3,379 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-const countries = [
-  "India",
-  "United States",
-  "United Kingdom",
-  "Canada",
-  "Australia",
-  "Germany",
-  "Singapore",
-  "United Arab Emirates",
-  "Other",
-];
+import { calculateVentureScore } from "@/lib/score";
 
-const industries = [
-  "Technology",
-  "Fintech",
-  "Healthcare",
-  "Education",
-  "E-commerce",
-  "Food & Beverage",
-  "Travel & Tourism",
-  "Real Estate",
-  "SaaS",
-  "Logistics",
-  "Manufacturing",
-  "Other",
-];
+import {
+  calculateFinancialModel,
+  calculateFinancialScenarios,
+} from "@/lib/financial";
 
-const targetMarkets = [
-  "Small businesses",
-  "Startups",
-  "Consumers",
-  "Enterprises",
-  "Students",
-  "Professionals",
-  "Developers",
-  "Healthcare customers",
-  "Online shoppers",
-  "Other",
-];
+import { calculateMarketIntelligence } from "@/lib/market";
+import { calculateCompetitorIntelligence } from "@/lib/competitor";
+import { calculateRiskIntelligence } from "@/lib/risk";
 
-const aiModels = ["Gemini 3.5 Flash-Lite"];
+/* =========================================================
+   METRIC CARD
+========================================================= */
 
-type ResearchSection = {
-  number: string;
-  title: string;
-  content: string;
-};
-
-type ScoreData = {
-  marketOpportunity: number | null;
-  demandStrength: number | null;
-  competitivePressure: number | null;
-  marketRisk: number | null;
-  customerOpportunity: number | null;
-  keyInsight: string;
-};
-
-function cleanMarkdownText(text: string) {
-  return text
-    .replace(/\*\*(.*?)\*\*/g, "$1")
-    .replace(/__(.*?)__/g, "$1")
-    .replace(/\*(.*?)\*/g, "$1")
-    .replace(/_(.*?)_/g, "$1")
-    .replace(/`(.*?)`/g, "$1")
-    .replace(/^>\s?/gm, "")
-    .trim();
-}
-
-function getScoreLabel(score: number | null) {
-  if (score === null) return "Pending";
-  if (score >= 80) return "Excellent";
-  if (score >= 65) return "Strong";
-  if (score >= 50) return "Moderate";
-  if (score >= 35) return "Weak";
-  return "Low";
-}
-
-function getCompetitionLabel(score: number | null) {
-  if (score === null) return "Pending";
-  if (score >= 80) return "Very High";
-  if (score >= 65) return "High";
-  if (score >= 50) return "Moderate";
-  if (score >= 35) return "Low";
-  return "Very Low";
-}
-
-function getRiskLabel(score: number | null) {
-  if (score === null) return "Pending";
-  if (score >= 80) return "Critical";
-  if (score >= 65) return "Elevated";
-  if (score >= 50) return "Moderate";
-  if (score >= 35) return "Low";
-  return "Very Low";
-}
-
-function extractScore(text: string, pattern: RegExp): number | null {
-  const match = text.match(pattern);
-
-  if (!match) {
-    return null;
-  }
-
-  const value = Number(match[1]);
-
-  if (Number.isNaN(value)) {
-    return null;
-  }
-
-  return Math.max(0, Math.min(100, value));
-}
-
-function parseScoreData(text: string): ScoreData {
-  const marketOpportunity = extractScore(
-    text,
-    /MARKET OPPORTUNITY SCORE\s*:?\s*(\d{1,3})/i
-  );
-
-  const demandStrength = extractScore(
-    text,
-    /DEMAND STRENGTH SCORE\s*:?\s*(\d{1,3})/i
-  );
-
-  const competitivePressure = extractScore(
-    text,
-    /COMPETITIVE PRESSURE SCORE\s*:?\s*(\d{1,3})/i
-  );
-
-  const marketRisk = extractScore(
-    text,
-    /MARKET RISK SCORE\s*:?\s*(\d{1,3})/i
-  );
-
-  const customerOpportunity = extractScore(
-    text,
-    /CUSTOMER OPPORTUNITY SCORE\s*:?\s*(\d{1,3})/i
-  );
-
-  const insightMatch = text.match(
-    /KEY MARKET INSIGHT\s*:?\s*([\s\S]*?)(?=\n\s*(?:1[.)]\s+Market Overview|MARKET OVERVIEW))/i
-  );
-
-  return {
-    marketOpportunity,
-    demandStrength,
-    competitivePressure,
-    marketRisk,
-    customerOpportunity,
-    keyInsight: insightMatch
-      ? cleanMarkdownText(insightMatch[1])
-      : "",
-  };
-}
-
-function parseResearch(text: string): ResearchSection[] {
-  const lines = text.split("\n");
-  const sections: ResearchSection[] = [];
-
-  let currentNumber = "";
-  let currentTitle = "";
-  let currentContent: string[] = [];
-
-  function saveCurrentSection() {
-    if (!currentTitle && currentContent.length === 0) {
-      return;
-    }
-
-    const content = currentContent
-      .join("\n")
-      .replace(/^---+$/gm, "")
-      .trim();
-
-    if (!content && !currentTitle) {
-      return;
-    }
-
-    sections.push({
-      number: currentNumber,
-      title: cleanMarkdownText(
-        currentTitle || "Research Analysis"
-      ),
-      content: cleanMarkdownText(content),
-    });
-  }
-
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-
-    if (!line) {
-      if (currentContent.length > 0) {
-        currentContent.push("");
-      }
-      continue;
-    }
-
-    if (/^-{3,}$/.test(line)) {
-      continue;
-    }
-
-    const numberedHeading = line.match(
-      /^#{0,6}\s*(\d+)[.)]\s+(.+)$/
-    );
-
-    if (numberedHeading) {
-      saveCurrentSection();
-
-      currentNumber = numberedHeading[1];
-      currentTitle = cleanMarkdownText(
-        numberedHeading[2]
-      );
-      currentContent = [];
-
-      continue;
-    }
-
-    const markdownHeading = line.match(
-      /^#{1,6}\s+(.+)$/
-    );
-
-    if (markdownHeading) {
-      currentContent.push(
-        cleanMarkdownText(markdownHeading[1])
-      );
-      continue;
-    }
-
-    currentContent.push(line);
-  }
-
-  saveCurrentSection();
-
-  return sections.filter(
-    (section) =>
-      section.number &&
-      section.title &&
-      section.content
-  );
-}
-
-function getSectionIcon(title: string) {
-  const normalized = title.toLowerCase();
-
-  if (normalized.includes("market overview")) return "📊";
-  if (normalized.includes("market demand")) return "📈";
-  if (normalized.includes("growth")) return "🚀";
-  if (normalized.includes("customer")) return "🎯";
-  if (normalized.includes("challenge")) return "⚠️";
-  if (normalized.includes("competitive")) return "⚔️";
-  if (normalized.includes("differentiation")) return "🧠";
-  if (normalized.includes("regulatory")) return "⚖️";
-  if (normalized.includes("investment")) return "💰";
-  if (normalized.includes("conclusion")) return "🏁";
-
-  return "🔎";
-}
-
-function getAverageScore(scoreData: ScoreData) {
-  const values = [
-    scoreData.marketOpportunity,
-    scoreData.demandStrength,
-    scoreData.customerOpportunity,
-    scoreData.marketRisk !== null
-      ? 100 - scoreData.marketRisk
-      : null,
-    scoreData.competitivePressure !== null
-      ? 100 - scoreData.competitivePressure
-      : null,
-  ].filter(
-    (value): value is number => value !== null
-  );
-
-  if (!values.length) {
-    return null;
-  }
-
-  return Math.round(
-    values.reduce((sum, value) => sum + value, 0) /
-      values.length
-  );
-}
-
-function getOverallLabel(score: number | null) {
-  if (score === null) return "Awaiting analysis";
-  if (score >= 80) return "Highly attractive";
-  if (score >= 65) return "Promising";
-  if (score >= 50) return "Mixed opportunity";
-  if (score >= 35) return "Challenging";
-  return "High caution";
-}
-
-function ScoreCard({
+function MetricCard({
+  title,
+  value,
+  subtitle,
   icon,
-  label,
-  score,
-  description,
-  type = "positive",
+  gradient,
 }: {
+  title: string;
+  value: string | number;
+  subtitle?: string;
   icon: string;
-  label: string;
-  score: number | null;
-  description: string;
-  type?: "positive" | "competition" | "risk";
+  gradient: string;
 }) {
-  let status = getScoreLabel(score);
-
-  if (type === "competition") {
-    status = getCompetitionLabel(score);
-  }
-
-  if (type === "risk") {
-    status = getRiskLabel(score);
-  }
-
-  const progress = score === null ? 0 : score;
-
   return (
-    <div className="group relative overflow-hidden rounded-[1.6rem] border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl">
-      <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-cyan-50 blur-2xl transition group-hover:bg-blue-50" />
+    <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+      <div
+        className={`absolute right-0 top-0 h-24 w-24 rounded-full bg-gradient-to-br ${gradient} opacity-10 blur-2xl transition-opacity group-hover:opacity-20`}
+      />
 
-      <div className="relative">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-lg">
-            {icon}
-          </div>
+      <div
+        className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} text-lg text-white shadow-lg`}
+      >
+        {icon}
+      </div>
 
-          <div className="rounded-full bg-slate-100 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500">
-            {status}
-          </div>
-        </div>
+      <p className="text-sm font-medium text-slate-500">
+        {title}
+      </p>
 
-        <div className="mt-6">
-          <div className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
-            {label}
-          </div>
+      <p className="mt-2 break-words text-2xl font-bold text-slate-900">
+        {value}
+      </p>
 
-          <div className="mt-2 flex items-end gap-2">
-            <div className="text-4xl font-black tracking-tight text-slate-950">
-              {score ?? "—"}
-            </div>
+      {subtitle && (
+        <p className="mt-1 text-sm text-slate-500">
+          {subtitle}
+        </p>
+      )}
+    </div>
+  );
+}
 
-            <div className="mb-1 text-sm font-bold text-slate-400">
-              / 100
-            </div>
-          </div>
+/* =========================================================
+   SCORE BAR
+========================================================= */
 
-          <p className="mt-3 min-h-[44px] text-xs leading-6 text-slate-500">
-            {description}
-          </p>
+function ScoreBar({
+  name,
+  score,
+  gradient,
+}: {
+  name: string;
+  score: number;
+  gradient: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-slate-700">
+          {name}
+        </span>
 
-          <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 transition-all duration-700"
-              style={{
-                width: `${progress}%`,
-              }}
-            />
-          </div>
-        </div>
+        <span className="text-sm font-bold text-slate-900">
+          {score}/100
+        </span>
+      </div>
+
+      <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
+        <div
+          className={`h-full rounded-full bg-gradient-to-r ${gradient} transition-all duration-700`}
+          style={{ width: `${score}%` }}
+        />
       </div>
     </div>
   );
 }
 
-function ResearchPageContent() {
+/* =========================================================
+   RISK CARD
+========================================================= */
+
+function RiskCard({
+  name,
+  score,
+  level,
+  explanation,
+}: {
+  name: string;
+  score: number;
+  level: string;
+  explanation: string;
+}) {
+  let badgeStyle =
+    "border-emerald-200 bg-emerald-100 text-emerald-700";
+
+  let barStyle =
+    "from-emerald-400 to-green-500";
+
+  if (score >= 60) {
+    badgeStyle =
+      "border-orange-200 bg-orange-100 text-orange-700";
+
+    barStyle =
+      "from-orange-400 to-amber-500";
+  }
+
+  if (score >= 75) {
+    badgeStyle =
+      "border-red-200 bg-red-100 text-red-700";
+
+    barStyle =
+      "from-red-400 to-rose-500";
+  }
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="font-bold text-slate-900">
+            {name}
+          </h3>
+
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            {explanation}
+          </p>
+        </div>
+
+        <div className="shrink-0 text-right">
+          <p className="text-2xl font-bold text-slate-900">
+            {score}
+          </p>
+
+          <span
+            className={`mt-1 inline-block rounded-full border px-2.5 py-1 text-xs font-bold ${badgeStyle}`}
+          >
+            {level}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-slate-100">
+        <div
+          className={`h-full rounded-full bg-gradient-to-r ${barStyle}`}
+          style={{
+            width: `${score}%`,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   SECTION HEADER
+========================================================= */
+
+function SectionHeader({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="mb-6">
+      <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
+        {eyebrow}
+      </p>
+
+      <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+        {title}
+      </h2>
+
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+/* =========================================================
+   RESULTS CONTENT
+========================================================= */
+
+function ResultsContent() {
   const searchParams = useSearchParams();
 
-  const [business, setBusiness] = useState(
+  const [advice, setAdvice] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+
+  /* -------------------------------------------------------
+     INPUTS
+  ------------------------------------------------------- */
+
+  const business =
     searchParams.get("business") ||
-      "AI-powered business platform"
-  );
+    "AI-powered healthcare platform";
 
-  const [country, setCountry] = useState(
-    searchParams.get("country") || "India"
-  );
+  const country =
+    searchParams.get("country") ||
+    "India";
 
-  const [industry, setIndustry] = useState(
-    searchParams.get("industry") || "Technology"
-  );
+  const market =
+    searchParams.get("market") ||
+    "College students";
 
-  const [market, setMarket] = useState(
-    searchParams.get("market") || "Small businesses"
-  );
+  const investment =
+    searchParams.get("investment") ||
+    "50 lakh";
 
-  const [model, setModel] = useState(
-    "Gemini 3.5 Flash-Lite"
-  );
+  const model =
+    searchParams.get("model") ||
+    "Subscription";
 
-  const [research, setResearch] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
+  /* -------------------------------------------------------
+     VENTURE SCORE
+  ------------------------------------------------------- */
 
-  async function generateResearch() {
-    if (!business.trim()) {
-      setError("Please enter a business idea.");
-      return;
-    }
+  const score = calculateVentureScore({
+    business,
+    country,
+    market,
+    investment,
+    model,
+  });
 
-    setLoading(true);
-    setError("");
-    setResearch("");
-    setCopied(false);
+  /* -------------------------------------------------------
+     FINANCIAL MODEL
+  ------------------------------------------------------- */
+
+  const financialData = calculateFinancialModel({
+    business,
+    investment,
+    model,
+  });
+
+  /* -------------------------------------------------------
+     FINANCIAL SCENARIOS
+  ------------------------------------------------------- */
+
+  const financialScenarios =
+    calculateFinancialScenarios({
+      business,
+      investment,
+      model,
+    });
+
+  /* -------------------------------------------------------
+     MARKET
+  ------------------------------------------------------- */
+
+  const marketData =
+    calculateMarketIntelligence({
+      business,
+      country,
+      market,
+    });
+
+  /* -------------------------------------------------------
+     COMPETITION
+  ------------------------------------------------------- */
+
+  const competitorData =
+    calculateCompetitorIntelligence({
+      business,
+      country,
+      market,
+    });
+
+  /* -------------------------------------------------------
+     RISK
+  ------------------------------------------------------- */
+
+  const riskData =
+    calculateRiskIntelligence({
+      business,
+      country,
+      market,
+      investment,
+      model,
+    });
+
+  /* -------------------------------------------------------
+     FINANCIAL STATUS
+  ------------------------------------------------------- */
+
+  const monthlyOperatingResult =
+    financialData.grossProfit -
+    financialData.monthlyExpenses;
+
+  const belowBreakEven =
+    monthlyOperatingResult < 0;
+
+  const revenueGap =
+    Math.max(
+      0,
+      financialData.breakEvenRevenue -
+        financialData.monthlyRevenue
+    );
+
+  /* =======================================================
+     AI ADVISOR
+  ======================================================= */
+
+  async function analyzeWithAI() {
+    setAiLoading(true);
+    setAiError("");
+    setAdvice("");
 
     try {
-      const response = await fetch("/api/research", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          business,
-          country,
-          industry,
-          market,
-          model,
-        }),
-      });
+      const response = await fetch(
+        "/api/advisor",
+        {
+          method: "POST",
 
-      const responseText = await response.text();
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
 
-      let data: {
-        research?: string;
-        error?: string;
-      } | null = null;
+          body: JSON.stringify({
+            business,
+            country,
+            market,
+            investment,
+            model,
+
+            ventureScore:
+              score.total,
+
+            marketOpportunity:
+              marketData.marketOpportunity,
+
+            competitionPressure:
+              competitorData.competitionPressure,
+
+            overallRisk:
+              riskData.overallRisk,
+
+            monthlyRevenue:
+              financialData.monthlyRevenue,
+
+            monthlyExpenses:
+              financialData.monthlyExpenses,
+
+            runway:
+              financialData.runway,
+          }),
+        }
+      );
+
+      const responseText =
+        await response.text();
+
+      let data;
 
       try {
         data = responseText
@@ -434,921 +384,1206 @@ function ResearchPageContent() {
       } catch {
         throw new Error(
           responseText ||
-            "The research server returned an invalid response."
+            "The AI server returned an invalid response."
         );
       }
 
       if (!response.ok) {
         throw new Error(
           data?.error ||
-            `Research request failed with status ${response.status}.`
+            `AI request failed with status ${response.status}.`
         );
       }
 
-      if (!data?.research) {
+      if (!data?.advice) {
         throw new Error(
-          "The research engine returned an empty report."
+          "The AI returned an empty response."
         );
       }
 
-      setResearch(data.research);
-    } catch (err) {
-      console.error(
-        "LaunchIQ Research Error:",
-        err
-      );
+      setAdvice(data.advice);
+    } catch (error) {
+      console.error(error);
 
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to generate market research."
+      setAiError(
+        error instanceof Error
+          ? error.message
+          : "Unable to generate AI advice."
       );
     } finally {
-      setLoading(false);
+      setAiLoading(false);
     }
   }
 
-  async function copyResearch() {
-    if (!research) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(research);
-
-      setCopied(true);
-
-      setTimeout(() => {
-        setCopied(false);
-      }, 2000);
-    } catch {
-      setError(
-        "Unable to copy the research report."
-      );
-    }
-  }
-
-  const scoreData = research
-    ? parseScoreData(research)
-    : {
-        marketOpportunity: null,
-        demandStrength: null,
-        competitivePressure: null,
-        marketRisk: null,
-        customerOpportunity: null,
-        keyInsight: "",
-      };
-
-  const sections = research
-    ? parseResearch(research)
-    : [];
-
-  const overallScore = getAverageScore(scoreData);
+  /* =======================================================
+     PAGE
+  ======================================================= */
 
   return (
-    <main className="min-h-screen bg-[#f6f8fb] text-slate-900">
-      {/* HERO */}
-      <section className="relative overflow-hidden bg-[#020617] text-white">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.18),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(79,70,229,0.24),transparent_38%)]" />
+    <main className="min-h-screen bg-slate-50">
 
-        <div className="absolute -right-32 -top-32 h-80 w-80 rounded-full bg-cyan-500/10 blur-3xl" />
+      {/* ===================================================
+          HERO HEADER
+      =================================================== */}
 
-        <div className="relative mx-auto max-w-7xl px-5 py-9 sm:px-6 md:px-10 md:py-12">
-          {/* NAV */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 text-lg font-black shadow-lg shadow-cyan-500/20">
-                L
-              </div>
+      <section className="relative overflow-hidden bg-slate-950 px-6 py-12 text-white md:py-16">
 
-              <div>
-                <div className="text-lg font-black tracking-tight">
-                  LaunchIQ
-                </div>
+        <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-blue-600/20 blur-3xl" />
 
-                <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500">
-                  Venture Intelligence
-                </div>
-              </div>
+        <div className="absolute -right-20 top-10 h-80 w-80 rounded-full bg-purple-600/20 blur-3xl" />
+
+        <div className="relative mx-auto max-w-7xl">
+
+          <div className="mb-8 flex items-center gap-3">
+
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 text-xl font-bold shadow-lg shadow-blue-500/20">
+              L
             </div>
 
-            <div className="flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-emerald-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              Engine Online
-            </div>
-          </div>
+            <div>
+              <p className="text-lg font-bold">
+                LaunchIQ
+              </p>
 
-          {/* HERO COPY */}
-          <div className="mt-12 max-w-4xl md:mt-16">
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300">
-              🔎 AI Market Intelligence
-            </div>
-
-            <h1 className="mt-5 text-4xl font-black leading-[1.02] tracking-tight sm:text-5xl md:text-6xl">
-              Research your market
-              <span className="block bg-gradient-to-r from-cyan-300 via-blue-400 to-indigo-400 bg-clip-text text-transparent">
-                before you launch.
-              </span>
-            </h1>
-
-            <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base md:text-lg">
-              Turn your startup idea into a structured
-              market intelligence report with AI-powered
-              analysis across demand, customers,
-              competition, growth and risk.
-            </p>
-
-            <div className="mt-7 flex flex-wrap gap-2">
-              <div className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold text-slate-300">
-                ✨ AI-generated
-              </div>
-
-              <div className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold text-slate-300">
-                ⚡ Gemini 3.5 Flash-Lite
-              </div>
-
-              <div className="rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-[10px] font-bold text-amber-200">
-                ℹ️ Decision support
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* WORKSPACE */}
-      <section className="mx-auto max-w-7xl px-5 py-8 sm:px-6 md:px-10 md:py-12">
-        <div className="grid gap-7 lg:grid-cols-[390px_1fr]">
-          {/* CONFIGURATION */}
-          <aside className="h-fit rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/40 sm:p-7 lg:sticky lg:top-6">
-            <div className="mb-7">
-              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-600">
-                Research Configuration
-              </div>
-
-              <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
-                Configure your analysis
-              </h2>
-
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Define the venture you want LaunchIQ
-                to evaluate.
+              <p className="text-xs text-slate-400">
+                AI Venture Intelligence Engine
               </p>
             </div>
 
-            {/* BUSINESS */}
-            <div className="mb-5">
-              <label className="mb-2 block text-sm font-black text-slate-800">
-                💡 Business Idea
-              </label>
-
-              <textarea
-                value={business}
-                onChange={(e) =>
-                  setBusiness(e.target.value)
-                }
-                placeholder="Describe your business idea..."
-                rows={4}
-                className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-100"
-              />
-            </div>
-
-            {/* COUNTRY */}
-            <div className="mb-5">
-              <label className="mb-2 block text-sm font-black text-slate-800">
-                🌍 Country
-              </label>
-
-              <select
-                value={country}
-                onChange={(e) =>
-                  setCountry(e.target.value)
-                }
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-100"
-              >
-                {countries.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* INDUSTRY */}
-            <div className="mb-5">
-              <label className="mb-2 block text-sm font-black text-slate-800">
-                🏭 Industry
-              </label>
-
-              <select
-                value={industry}
-                onChange={(e) =>
-                  setIndustry(e.target.value)
-                }
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-100"
-              >
-                {industries.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* TARGET MARKET */}
-            <div className="mb-5">
-              <label className="mb-2 block text-sm font-black text-slate-800">
-                🎯 Target Market
-              </label>
-
-              <select
-                value={market}
-                onChange={(e) =>
-                  setMarket(e.target.value)
-                }
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-100"
-              >
-                {targetMarkets.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* MODEL */}
-            <div className="mb-6">
-              <label className="mb-2 block text-sm font-black text-slate-800">
-                🤖 AI Research Model
-              </label>
-
-              <select
-                value={model}
-                onChange={(e) =>
-                  setModel(e.target.value)
-                }
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-100"
-              >
-                {aiModels.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-
-              <div className="mt-2 flex items-center gap-2 text-[10px] font-bold text-slate-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                Powered by Google Gemini
-              </div>
-            </div>
-
-            {/* FREE ENGINE NOTICE */}
-            <div className="mb-5 rounded-2xl border border-blue-100 bg-blue-50 p-4">
-              <div className="flex gap-3">
-                <div className="text-lg">ℹ️</div>
-
-                <div>
-                  <div className="text-xs font-black text-blue-900">
-                    Free AI research engine
-                  </div>
-
-                  <p className="mt-1 text-[11px] leading-5 text-blue-700">
-                    This analysis uses Gemini to
-                    generate structured market
-                    intelligence from your venture
-                    configuration.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* GENERATE */}
-            <button
-              type="button"
-              onClick={generateResearch}
-              disabled={loading}
-              className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 px-6 py-4 text-sm font-black text-white shadow-xl shadow-blue-500/20 transition hover:-translate-y-0.5 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-3">
-                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  LaunchIQ is researching...
-                </span>
-              ) : (
-                "✨ Generate Market Research"
-              )}
-            </button>
-
-            {error && (
-              <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold leading-6 text-red-700">
-                ⚠️ {error}
-              </div>
-            )}
-          </aside>
-
-          {/* REPORT AREA */}
-          <div className="min-h-[600px] rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/40 sm:p-7 md:p-8">
-            {/* EMPTY STATE */}
-            {!research && !loading && (
-              <div className="flex min-h-[540px] flex-col items-center justify-center px-4 text-center">
-                <div className="relative">
-                  <div className="absolute inset-0 rounded-[2rem] bg-cyan-200/40 blur-2xl" />
-
-                  <div className="relative flex h-20 w-20 items-center justify-center rounded-[1.8rem] bg-gradient-to-br from-cyan-100 to-blue-100 text-4xl shadow-sm">
-                    🔎
-                  </div>
-                </div>
-
-                <div className="mt-7 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-600">
-                  LaunchIQ Research Engine
-                </div>
-
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-                  Ready to research
-                </h2>
-
-                <p className="mt-3 max-w-lg text-sm leading-7 text-slate-500">
-                  Configure your venture and generate
-                  an AI-powered market intelligence
-                  report covering demand, customers,
-                  competition, growth, risks and
-                  investment considerations.
-                </p>
-
-                <div className="mt-7 grid w-full max-w-xl grid-cols-2 gap-3 sm:grid-cols-4">
-                  {[
-                    ["📊", "Demand"],
-                    ["🎯", "Customers"],
-                    ["⚔️", "Competition"],
-                    ["🚀", "Growth"],
-                  ].map(([icon, label]) => (
-                    <div
-                      key={label}
-                      className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-4"
-                    >
-                      <div className="text-xl">
-                        {icon}
-                      </div>
-
-                      <div className="mt-2 text-[10px] font-black uppercase tracking-wider text-slate-500">
-                        {label}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* LOADING */}
-            {loading && (
-              <div className="flex min-h-[540px] flex-col items-center justify-center px-4 text-center">
-                <div className="relative">
-                  <div className="absolute inset-0 rounded-full bg-cyan-300/30 blur-2xl" />
-
-                  <div className="relative h-16 w-16 animate-spin rounded-full border-4 border-slate-200 border-t-cyan-500" />
-                </div>
-
-                <div className="mt-8 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-600">
-                  Gemini Research Engine
-                </div>
-
-                <h2 className="mt-2 text-2xl font-black text-slate-950">
-                  LaunchIQ is researching
-                </h2>
-
-                <p className="mt-3 max-w-lg text-sm leading-7 text-slate-500">
-                  Building your market intelligence
-                  assessment across demand, customers,
-                  growth, competition, differentiation
-                  and investment potential.
-                </p>
-
-                <div className="mt-7 flex flex-wrap justify-center gap-2">
-                  <span className="rounded-full bg-slate-100 px-3 py-2 text-[10px] font-bold text-slate-500">
-                    Analyzing demand
-                  </span>
-
-                  <span className="rounded-full bg-slate-100 px-3 py-2 text-[10px] font-bold text-slate-500">
-                    Mapping customers
-                  </span>
-
-                  <span className="rounded-full bg-slate-100 px-3 py-2 text-[10px] font-bold text-slate-500">
-                    Assessing competition
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* REPORT */}
-            {research && !loading && (
-              <div>
-                {/* REPORT HEADER */}
-                <div className="border-b border-slate-200 pb-7">
-                  <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-600">
-                          Market Intelligence Report
-                        </div>
-
-                        <div className="rounded-full bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-emerald-600">
-                          Generated
-                        </div>
-                      </div>
-
-                      <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
-                        Market intelligence
-                      </h2>
-
-                      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                        AI-generated assessment for{" "}
-                        <span className="font-bold text-slate-700">
-                          {business}
-                        </span>
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={copyResearch}
-                      className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-700 transition hover:bg-slate-100"
-                    >
-                      {copied
-                        ? "✓ Copied"
-                        : "📋 Copy Report"}
-                    </button>
-                  </div>
-
-                  {/* SOURCE STATUS */}
-                  <div className="mt-6 flex flex-wrap gap-2">
-                    <div className="rounded-full border border-cyan-100 bg-cyan-50 px-3 py-2 text-[10px] font-bold text-cyan-700">
-                      🤖 Gemini 3.5 Flash-Lite
-                    </div>
-
-                    <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-bold text-slate-600">
-                      🧠 AI-generated analysis
-                    </div>
-
-                    <div className="rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-bold text-amber-700">
-                      ℹ️ Not live web research
-                    </div>
-                  </div>
-                </div>
-
-                {/* EXECUTIVE SCORE */}
-                <div className="mt-7 rounded-[1.6rem] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-6 text-white shadow-xl">
-                  <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">
-                        Executive Snapshot
-                      </div>
-
-                      <h3 className="mt-2 text-2xl font-black">
-                        Overall opportunity
-                      </h3>
-
-                      <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">
-                        A directional AI assessment
-                        combining opportunity, demand,
-                        customer attractiveness and
-                        competitive and market risk
-                        signals.
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-5">
-                      <div className="flex h-24 w-24 flex-col items-center justify-center rounded-full border border-cyan-300/30 bg-white/5">
-                        <div className="text-3xl font-black">
-                          {overallScore ?? "—"}
-                        </div>
-
-                        <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
-                          / 100
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-sm font-black text-cyan-300">
-                          {getOverallLabel(
-                            overallScore
-                          )}
-                        </div>
-
-                        <div className="mt-1 text-xs text-slate-400">
-                          Directional AI indicator
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* SNAPSHOT */}
-                <div className="mt-8">
-                  <div className="mb-5">
-                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-600">
-                      Intelligence Snapshot
-                    </div>
-
-                    <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
-                      Market opportunity at a glance
-                    </h3>
-
-                    <p className="mt-2 text-sm leading-6 text-slate-500">
-                      AI-generated indicators based on
-                      your venture configuration and
-                      generated research analysis.
-                    </p>
-                  </div>
-
-                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    <ScoreCard
-                      icon="📊"
-                      label="Market Opportunity"
-                      score={
-                        scoreData.marketOpportunity
-                      }
-                      description="Overall attractiveness of the opportunity."
-                    />
-
-                    <ScoreCard
-                      icon="📈"
-                      label="Demand Strength"
-                      score={
-                        scoreData.demandStrength
-                      }
-                      description="Estimated strength of customer demand."
-                    />
-
-                    <ScoreCard
-                      icon="⚔️"
-                      label="Competitive Pressure"
-                      score={
-                        scoreData.competitivePressure
-                      }
-                      type="competition"
-                      description="Higher scores indicate stronger competition."
-                    />
-
-                    <ScoreCard
-                      icon="⚠️"
-                      label="Market Risk"
-                      score={scoreData.marketRisk}
-                      type="risk"
-                      description="Higher scores indicate greater market risk."
-                    />
-
-                    <ScoreCard
-                      icon="🎯"
-                      label="Customer Opportunity"
-                      score={
-                        scoreData.customerOpportunity
-                      }
-                      description="Potential attractiveness of the target customers."
-                    />
-
-                    {/* KEY INSIGHT */}
-                    <div className="rounded-[1.6rem] border border-cyan-100 bg-gradient-to-br from-cyan-50 via-white to-blue-50 p-5 shadow-sm">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-100 text-lg">
-                        🧠
-                      </div>
-
-                      <div className="mt-6 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-600">
-                        Key Market Insight
-                      </div>
-
-                      <p className="mt-3 text-sm font-bold leading-7 text-slate-700">
-                        {scoreData.keyInsight ||
-                          "LaunchIQ has generated a market intelligence assessment based on the selected venture configuration."}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* CONFIGURATION */}
-                <div className="mt-8 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
-                  <div className="mb-4 flex items-center justify-between gap-4">
-                    <div>
-                      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                        Venture Profile
-                      </div>
-
-                      <div className="mt-1 text-sm font-black text-slate-800">
-                        Research configuration
-                      </div>
-                    </div>
-
-                    <div className="hidden rounded-full bg-white px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400 sm:block">
-                      Analysis Context
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-2xl bg-white p-4">
-                      <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                        Country
-                      </div>
-
-                      <div className="mt-1 text-sm font-black text-slate-800">
-                        🌍 {country}
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl bg-white p-4">
-                      <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                        Industry
-                      </div>
-
-                      <div className="mt-1 text-sm font-black text-slate-800">
-                        🏭 {industry}
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl bg-white p-4">
-                      <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                        Target Market
-                      </div>
-
-                      <div className="mt-1 text-sm font-black text-slate-800">
-                        🎯 {market}
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl bg-white p-4">
-                      <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                        AI Model
-                      </div>
-
-                      <div className="mt-1 text-sm font-black text-slate-800">
-                        🤖 Gemini 3.5 Flash-Lite
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* DETAILED ANALYSIS */}
-                <div className="mt-10">
-                  <div className="mb-5">
-                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-600">
-                      Detailed Analysis
-                    </div>
-
-                    <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
-                      Research intelligence
-                    </h3>
-
-                    <p className="mt-2 text-sm leading-6 text-slate-500">
-                      Structured insights generated by
-                      the LaunchIQ research engine.
-                    </p>
-                  </div>
-
-                  <div className="space-y-4">
-                    {sections.map(
-                      (section, index) => {
-                        const icon =
-                          getSectionIcon(
-                            section.title
-                          );
-
-                        const isCompetitive =
-                          section.title
-                            .toLowerCase()
-                            .includes("competitive");
-
-                        const isDifferentiation =
-                          section.title
-                            .toLowerCase()
-                            .includes(
-                              "differentiation"
-                            );
-
-                        const isConclusion =
-                          section.title
-                            .toLowerCase()
-                            .includes(
-                              "conclusion"
-                            );
-
-                        return (
-                          <div
-                            key={`${section.number}-${index}`}
-                            className={`overflow-hidden rounded-[1.5rem] border bg-white shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-lg ${
-                              isCompetitive
-                                ? "border-indigo-200"
-                                : isDifferentiation
-                                ? "border-cyan-200"
-                                : isConclusion
-                                ? "border-emerald-200"
-                                : "border-slate-200"
-                            }`}
-                          >
-                            <div className="p-5 sm:p-6 md:p-7">
-                              <div className="flex gap-4">
-                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-xs font-black text-white shadow-lg shadow-blue-500/20">
-                                  {section.number ||
-                                    String(
-                                      index + 1
-                                    ).padStart(
-                                      2,
-                                      "0"
-                                    )}
-                                </div>
-
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <div className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-600">
-                                      LaunchIQ Intelligence
-                                    </div>
-
-                                    {isCompetitive && (
-                                      <div className="rounded-full bg-indigo-50 px-2.5 py-1 text-[8px] font-black uppercase tracking-widest text-indigo-600">
-                                        Competitive
-                                      </div>
-                                    )}
-
-                                    {isDifferentiation && (
-                                      <div className="rounded-full bg-cyan-50 px-2.5 py-1 text-[8px] font-black uppercase tracking-widest text-cyan-600">
-                                        Strategy
-                                      </div>
-                                    )}
-
-                                    {isConclusion && (
-                                      <div className="rounded-full bg-emerald-50 px-2.5 py-1 text-[8px] font-black uppercase tracking-widest text-emerald-600">
-                                        Decision Point
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  <div className="mt-2 flex items-center gap-3">
-                                    <span className="text-xl">
-                                      {icon}
-                                    </span>
-
-                                    <h4 className="text-lg font-black tracking-tight text-slate-950 sm:text-xl">
-                                      {section.title}
-                                    </h4>
-                                  </div>
-
-                                  <div className="mt-5 whitespace-pre-wrap text-sm leading-8 text-slate-600">
-                                    {section.content}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }
-                    )}
-                  </div>
-                </div>
-
-                {/* COMPETITIVE INTELLIGENCE */}
-                <div className="mt-8 rounded-[1.5rem] border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-cyan-50 p-5 sm:p-6">
-                  <div className="flex gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-100 text-xl">
-                      ⚔️
-                    </div>
-
-                    <div>
-                      <div className="text-sm font-black text-slate-950">
-                        Competitive Intelligence
-                      </div>
-
-                      <p className="mt-2 text-sm leading-7 text-slate-600">
-                        LaunchIQ uses the competitive
-                        landscape and differentiation
-                        analysis to help identify where
-                        your startup could create a
-                        defensible position.
-                      </p>
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {[
-                          "⚔️ Competition",
-                          "💪 Strengths",
-                          "⚠️ Weaknesses",
-                          "🎯 Positioning",
-                          "🧠 Differentiation",
-                        ].map((item) => (
-                          <span
-                            key={item}
-                            className="rounded-full bg-white px-3 py-2 text-[10px] font-bold text-slate-600 shadow-sm"
-                          >
-                            {item}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* DECISION SUPPORT */}
-                <div className="mt-6 rounded-[1.5rem] border border-cyan-100 bg-gradient-to-br from-cyan-50 via-white to-blue-50 p-5 sm:p-6">
-                  <div className="flex gap-4">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-100 text-lg">
-                      🧠
-                    </div>
-
-                    <div>
-                      <div className="text-sm font-black text-slate-950">
-                        LaunchIQ Decision Support
-                      </div>
-
-                      <p className="mt-2 text-xs leading-6 text-slate-600">
-                        Use this report to identify
-                        assumptions, opportunities and
-                        questions worth validating before
-                        investing significant time or
-                        capital.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* IMPORTANT LIMITATION */}
-                <div className="mt-5 rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5">
-                  <div className="flex gap-3">
-                    <div className="text-xl">
-                      ⚠️
-                    </div>
-
-                    <div>
-                      <div className="text-sm font-black text-amber-950">
-                        Important: AI-generated research
-                      </div>
-
-                      <p className="mt-1 text-xs leading-6 text-amber-800">
-                        This report is generated by AI
-                        from the venture information you
-                        provide. It is not live web
-                        research and should not be treated
-                        as verified market data. Important
-                        statistics, competitors,
-                        regulations, pricing and
-                        investment assumptions should be
-                        independently verified before making
-                        business decisions.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* REPORT FOOTER */}
-                <div className="mt-7 flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="text-xs font-black text-slate-700">
-                      LaunchIQ Market Intelligence
-                    </div>
-
-                    <div className="mt-1 text-[10px] text-slate-400">
-                      Powered by Gemini 3.5 Flash-Lite
-                    </div>
-                  </div>
-
-                  <div className="text-[10px] font-bold text-slate-400">
-                    AI decision-support prototype
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
+
+          <div className="grid gap-10 lg:grid-cols-3 lg:items-center">
+
+            <div className="lg:col-span-2">
+
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/10 px-4 py-2 text-xs font-semibold text-blue-300">
+
+                <span className="h-2 w-2 rounded-full bg-blue-400" />
+
+                Venture Intelligence Report
+
+              </div>
+
+              <h1 className="max-w-4xl break-words text-4xl font-black tracking-tight md:text-6xl">
+                {business}
+              </h1>
+
+              <p className="mt-5 max-w-2xl text-base leading-7 text-slate-300 md:text-lg">
+                A comprehensive venture analysis covering
+                market opportunity, financial potential,
+                competition and business risk.
+              </p>
+
+              <div className="mt-7 flex flex-wrap gap-3">
+
+                <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+                  🌍 {country}
+                </span>
+
+                <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+                  🎯 {market}
+                </span>
+
+                <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+                  💰 {investment}
+                </span>
+
+                <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+                  ⚡ {model}
+                </span>
+
+              </div>
+
+            </div>
+
+            {/* HERO SCORE */}
+
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-7 backdrop-blur-xl">
+
+              <p className="text-sm font-medium text-slate-400">
+                Overall Venture Score
+              </p>
+
+              <div className="mt-3 flex items-end gap-2">
+
+                <span className="bg-gradient-to-r from-blue-400 via-cyan-300 to-purple-400 bg-clip-text text-7xl font-black text-transparent">
+                  {score.total}
+                </span>
+
+                <span className="mb-3 text-slate-500">
+                  /100
+                </span>
+
+              </div>
+
+              <p className="mt-2 text-lg font-bold text-white">
+                {score.verdict}
+              </p>
+
+              <div className="mt-6 h-3 overflow-hidden rounded-full bg-white/10">
+
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-purple-500"
+                  style={{
+                    width: `${score.total}%`,
+                  }}
+                />
+
+              </div>
+
+              <p className="mt-3 text-xs text-slate-400">
+                Prototype intelligence score
+              </p>
+
+            </div>
+
+          </div>
+
         </div>
+
       </section>
 
-      {/* FOOTER */}
-      <footer className="border-t border-slate-200 bg-white px-5 py-8 text-center">
-        <div className="text-sm font-black text-slate-800">
-          LaunchIQ
-        </div>
+      {/* ===================================================
+          MAIN CONTENT
+      =================================================== */}
 
-        <div className="mt-1 text-xs text-slate-400">
-          AI Venture Intelligence Engine
-        </div>
+      <div className="mx-auto max-w-7xl px-6 py-12">
 
-        <div className="mt-4 text-[10px] text-slate-400">
-          © 2026 LaunchIQ — AI Venture Intelligence
-          Platform
-        </div>
-      </footer>
+        {/* =================================================
+            01 · VENTURE SCORE
+        ================================================= */}
+
+        <section className="mb-14">
+
+          <SectionHeader
+            eyebrow="01 · Venture Score"
+            title="Investment Attractiveness"
+            description="A weighted view of the core factors influencing the venture's potential."
+          />
+
+          <div className="grid gap-6 lg:grid-cols-3">
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
+
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 text-2xl text-white shadow-lg shadow-blue-500/20">
+                ✦
+              </div>
+
+              <h3 className="mt-5 text-xl font-bold text-slate-900">
+                {score.verdict}
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                LaunchIQ evaluates the opportunity across
+                market, competition, economics, regulation
+                and risk.
+              </p>
+
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm lg:col-span-2">
+
+              <div className="space-y-6">
+
+                <ScoreBar
+                  name="Market"
+                  score={score.market}
+                  gradient="from-blue-500 to-cyan-400"
+                />
+
+                <ScoreBar
+                  name="Competition"
+                  score={score.competition}
+                  gradient="from-purple-500 to-fuchsia-500"
+                />
+
+                <ScoreBar
+                  name="Economics"
+                  score={score.economics}
+                  gradient="from-emerald-500 to-teal-400"
+                />
+
+                <ScoreBar
+                  name="Regulation"
+                  score={score.regulation}
+                  gradient="from-orange-500 to-amber-400"
+                />
+
+                <ScoreBar
+                  name="Risk"
+                  score={score.risk}
+                  gradient="from-rose-500 to-red-400"
+                />
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* =================================================
+            02 · MARKET INTELLIGENCE
+        ================================================= */}
+
+        <section className="mb-14">
+
+          <SectionHeader
+            eyebrow="02 · Market Intelligence"
+            title="Understand the Market"
+            description="Country-level indicators help estimate digital readiness, market scale and growth potential."
+          />
+
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+
+            <MetricCard
+              title="Population"
+              value={marketData.population.toLocaleString()}
+              icon="🌍"
+              gradient="from-blue-500 to-cyan-400"
+            />
+
+            <MetricCard
+              title="GDP"
+              value={`$${(
+                marketData.gdp /
+                1_000_000_000_000
+              ).toFixed(2)}T`}
+              icon="📈"
+              gradient="from-violet-500 to-purple-500"
+            />
+
+            <MetricCard
+              title="Internet Penetration"
+              value={`${marketData.internetPenetration}%`}
+              icon="🌐"
+              gradient="from-cyan-500 to-blue-500"
+            />
+
+            <MetricCard
+              title="Digital Adoption"
+              value={`${marketData.digitalAdoption}%`}
+              icon="⚡"
+              gradient="from-emerald-500 to-teal-400"
+            />
+
+          </div>
+
+          <div className="mt-5 grid gap-5 md:grid-cols-3">
+
+            <MetricCard
+              title="Market Growth"
+              value={`${marketData.marketGrowth}%`}
+              subtitle={marketData.growthOutlook}
+              icon="🚀"
+              gradient="from-orange-500 to-amber-400"
+            />
+
+            <MetricCard
+              title="Market Size"
+              value={marketData.marketSize}
+              icon="📊"
+              gradient="from-purple-500 to-pink-500"
+            />
+
+            <MetricCard
+              title="Opportunity Score"
+              value={`${marketData.marketOpportunity}/100`}
+              subtitle={marketData.opportunityLevel}
+              icon="💎"
+              gradient="from-blue-600 to-indigo-500"
+            />
+
+          </div>
+
+        </section>
+
+        {/* =================================================
+            03 · COMPETITIVE INTELLIGENCE
+        ================================================= */}
+
+        <section className="mb-14">
+
+          <SectionHeader
+            eyebrow="03 · Competitive Intelligence"
+            title="Competitive Landscape"
+            description="Understand the major players, their strengths and where differentiation may be possible."
+          />
+
+          <div className="mb-6 grid gap-5 md:grid-cols-2">
+
+            <MetricCard
+              title="Competition Pressure"
+              value={`${competitorData.competitionPressure}/100`}
+              subtitle={competitorData.competitionLevel}
+              icon="⚔️"
+              gradient="from-rose-500 to-orange-400"
+            />
+
+            <MetricCard
+              title="Competitive Opportunity"
+              value={`${competitorData.competitiveOpportunity}/100`}
+              subtitle="Room to differentiate"
+              icon="🎯"
+              gradient="from-indigo-500 to-purple-500"
+            />
+
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-3">
+
+            {competitorData.competitors.map(
+              (competitor) => (
+                <div
+                  key={competitor.name}
+                  className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-purple-200 hover:shadow-xl"
+                >
+
+                  <div className="flex items-start justify-between gap-3">
+
+                    <div>
+
+                      <div className="flex items-center gap-3">
+
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 text-sm font-bold text-white">
+                          {competitor.name
+                            .charAt(0)
+                            .toUpperCase()}
+                        </div>
+
+                        <div>
+
+                          <h3 className="font-bold text-slate-900">
+                            {competitor.name}
+                          </h3>
+
+                          <p className="text-xs text-slate-500">
+                            {competitor.category}
+                          </p>
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                    <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600">
+                      {competitor.pressure}
+                    </span>
+
+                  </div>
+
+                  <div className="mt-6 space-y-4">
+
+                    <div>
+
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Pricing
+                      </p>
+
+                      <p className="mt-1 text-sm text-slate-700">
+                        {competitor.pricing}
+                      </p>
+
+                    </div>
+
+                    <div className="rounded-xl bg-emerald-50 p-4">
+
+                      <p className="text-xs font-bold uppercase tracking-wider text-emerald-600">
+                        Strength
+                      </p>
+
+                      <p className="mt-1 text-sm leading-6 text-emerald-900">
+                        {competitor.strength}
+                      </p>
+
+                    </div>
+
+                    <div className="rounded-xl bg-orange-50 p-4">
+
+                      <p className="text-xs font-bold uppercase tracking-wider text-orange-600">
+                        Weakness
+                      </p>
+
+                      <p className="mt-1 text-sm leading-6 text-orange-900">
+                        {competitor.weakness}
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                </div>
+              )
+            )}
+
+          </div>
+
+        </section>
+
+        {/* =================================================
+            04 · FINANCIAL INTELLIGENCE
+        ================================================= */}
+
+        <section className="mb-14">
+
+          <SectionHeader
+            eyebrow="04 · Financial Intelligence"
+            title="Financial Potential"
+            description="A prototype financial model estimates revenue, expenses, profitability and capital runway."
+          />
+
+          {/* FINANCIAL METRICS */}
+
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+
+            <MetricCard
+              title="Monthly Revenue"
+              value={`₹${financialData.monthlyRevenue.toLocaleString()}`}
+              icon="💵"
+              gradient="from-emerald-500 to-green-400"
+            />
+
+            <MetricCard
+              title="Monthly Expenses"
+              value={`₹${financialData.monthlyExpenses.toLocaleString()}`}
+              icon="💳"
+              gradient="from-orange-500 to-amber-400"
+            />
+
+            <MetricCard
+              title="Gross Profit"
+              value={`₹${financialData.grossProfit.toLocaleString()}`}
+              icon="📈"
+              gradient="from-blue-500 to-cyan-400"
+            />
+
+            <MetricCard
+              title="Gross Margin"
+              value={`${financialData.grossMargin}%`}
+              icon="📊"
+              gradient="from-purple-500 to-fuchsia-500"
+            />
+
+          </div>
+
+          <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+
+            <MetricCard
+              title="Monthly Net Burn"
+              value={`₹${financialData.monthlyBurn.toLocaleString()}`}
+              icon="🔥"
+              gradient="from-red-500 to-orange-400"
+            />
+
+            <MetricCard
+              title="Runway"
+              value={`${financialData.runway} months`}
+              icon="🛣️"
+              gradient="from-indigo-500 to-blue-500"
+            />
+
+            <MetricCard
+              title="Break-even Revenue"
+              value={`₹${financialData.breakEvenRevenue.toLocaleString()}`}
+              icon="⚖️"
+              gradient="from-cyan-500 to-teal-400"
+            />
+
+            <MetricCard
+              title="ROI"
+              value={`${financialData.roi}%`}
+              icon="💎"
+              gradient="from-violet-500 to-purple-500"
+            />
+
+          </div>
+
+          {/* =================================================
+              FINANCIAL HEALTH STATUS
+          ================================================= */}
+
+          <div
+            className={`mt-6 overflow-hidden rounded-3xl border p-7 shadow-sm ${
+              belowBreakEven
+                ? "border-red-200 bg-gradient-to-br from-red-50 via-white to-orange-50"
+                : "border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-cyan-50"
+            }`}
+          >
+
+            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+
+              <div className="flex items-start gap-4">
+
+                <div
+                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl ${
+                    belowBreakEven
+                      ? "bg-red-100 text-red-600"
+                      : "bg-emerald-100 text-emerald-600"
+                  }`}
+                >
+                  {belowBreakEven ? "⚠️" : "✓"}
+                </div>
+
+                <div>
+
+                  <p
+                    className={`text-xs font-black uppercase tracking-[0.18em] ${
+                      belowBreakEven
+                        ? "text-red-600"
+                        : "text-emerald-600"
+                    }`}
+                  >
+                    Current Financial Status
+                  </p>
+
+                  <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
+                    {belowBreakEven
+                      ? "Below Break-Even"
+                      : "Above Break-Even"}
+                  </h3>
+
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+
+                    {belowBreakEven
+                      ? `Current estimated revenue is ₹${financialData.monthlyRevenue.toLocaleString()} per month, compared with approximately ₹${financialData.breakEvenRevenue.toLocaleString()} required to break even.`
+                      : `Current estimated revenue is ₹${financialData.monthlyRevenue.toLocaleString()} per month, which is above the estimated break-even point of ₹${financialData.breakEvenRevenue.toLocaleString()}.`}
+
+                  </p>
+
+                </div>
+
+              </div>
+
+              <div className="shrink-0 rounded-2xl bg-white/80 px-6 py-4 shadow-sm">
+
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+
+                  {belowBreakEven
+                    ? "Estimated Monthly Loss"
+                    : "Estimated Monthly Profit"}
+
+                </p>
+
+                <p
+                  className={`mt-1 text-2xl font-black ${
+                    belowBreakEven
+                      ? "text-red-600"
+                      : "text-emerald-600"
+                  }`}
+                >
+                  ₹
+                  {Math.abs(
+                    monthlyOperatingResult
+                  ).toLocaleString()}
+                </p>
+
+              </div>
+
+            </div>
+
+            {belowBreakEven && (
+
+              <div className="mt-5 rounded-2xl border border-red-100 bg-white/70 p-5">
+
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+
+                  <div>
+
+                    <p className="text-sm font-bold text-slate-800">
+                      Revenue gap to break-even
+                    </p>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      The venture needs additional monthly revenue to cover its operating expenses.
+                    </p>
+
+                  </div>
+
+                  <p className="text-lg font-black text-red-600">
+                    +₹
+                    {revenueGap.toLocaleString()}
+                  </p>
+
+                </div>
+
+              </div>
+
+            )}
+
+          </div>
+
+          {/* =================================================
+              FINANCIAL ASSUMPTIONS
+          ================================================= */}
+
+          <div className="mt-6 rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-purple-50 p-7">
+
+            <div className="flex items-center gap-3">
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                💡
+              </div>
+
+              <h3 className="font-bold text-slate-900">
+                Financial Assumptions
+              </h3>
+
+            </div>
+
+            <div className="mt-5 grid gap-5 md:grid-cols-2">
+
+              <div className="rounded-2xl border border-blue-100 bg-white/80 p-5">
+
+                <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                  Revenue Assumption
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-slate-700">
+                  {financialData.revenueAssumption}
+                </p>
+
+              </div>
+
+              <div className="rounded-2xl border border-purple-100 bg-white/80 p-5">
+
+                <p className="text-xs font-bold uppercase tracking-wider text-purple-600">
+                  Expense Assumption
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-slate-700">
+                  {financialData.expenseAssumption}
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* =================================================
+              FINANCIAL SCENARIOS
+          ================================================= */}
+
+          <div className="mt-6">
+
+            <div className="mb-5">
+
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
+                Scenario Planning
+              </p>
+
+              <h3 className="mt-2 text-xl font-bold tracking-tight text-slate-900 md:text-2xl">
+                Three possible financial paths
+              </h3>
+
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                Compare conservative, base-case and aggressive assumptions before making a launch decision.
+              </p>
+
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-3">
+
+              {financialScenarios.map(
+                (scenario) => {
+
+                  const isBase =
+                    scenario.name ===
+                    "Base Case";
+
+                  const isAggressive =
+                    scenario.name ===
+                    "Aggressive";
+
+                  const cardStyle =
+                    isBase
+                      ? "border-blue-200 bg-gradient-to-br from-blue-50 via-white to-indigo-50"
+                      : isAggressive
+                        ? "border-purple-200 bg-gradient-to-br from-purple-50 via-white to-fuchsia-50"
+                        : "border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-teal-50";
+
+                  const badgeStyle =
+                    isBase
+                      ? "bg-blue-100 text-blue-700"
+                      : isAggressive
+                        ? "bg-purple-100 text-purple-700"
+                        : "bg-emerald-100 text-emerald-700";
+
+                  const scenarioLoss =
+                    scenario.monthlyRevenue <
+                    scenario.monthlyExpenses;
+
+                  const scenarioResult =
+                    Math.abs(
+                      scenario.monthlyRevenue -
+                        scenario.monthlyExpenses
+                    );
+
+                  return (
+
+                    <div
+                      key={scenario.name}
+                      className={`rounded-3xl border p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${cardStyle}`}
+                    >
+
+                      <div className="flex items-start justify-between gap-4">
+
+                        <div>
+
+                          <p className="text-lg font-bold text-slate-900">
+                            {scenario.name}
+                          </p>
+
+                          <p className="mt-1 text-sm leading-6 text-slate-500">
+                            {scenario.description}
+                          </p>
+
+                        </div>
+
+                        <span
+                          className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${badgeStyle}`}
+                        >
+                          {isBase
+                            ? "Recommended baseline"
+                            : isAggressive
+                              ? "Upside case"
+                              : "Downside case"}
+                        </span>
+
+                      </div>
+
+                      <div className="mt-6 grid grid-cols-2 gap-3">
+
+                        <div className="rounded-2xl bg-white/80 p-4">
+
+                          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Revenue
+                          </p>
+
+                          <p className="mt-1 text-lg font-bold text-slate-900">
+                            ₹
+                            {scenario.monthlyRevenue.toLocaleString()}
+                          </p>
+
+                          <p className="text-xs text-slate-500">
+                            per month
+                          </p>
+
+                        </div>
+
+                        <div className="rounded-2xl bg-white/80 p-4">
+
+                          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Expenses
+                          </p>
+
+                          <p className="mt-1 text-lg font-bold text-slate-900">
+                            ₹
+                            {scenario.monthlyExpenses.toLocaleString()}
+                          </p>
+
+                          <p className="text-xs text-slate-500">
+                            per month
+                          </p>
+
+                        </div>
+
+                        <div className="rounded-2xl bg-white/80 p-4">
+
+                          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Runway
+                          </p>
+
+                          <p className="mt-1 text-lg font-bold text-slate-900">
+                            {scenario.runway}
+                            {" "}
+                            months
+                          </p>
+
+                        </div>
+
+                        <div className="rounded-2xl bg-white/80 p-4">
+
+                          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            ROI
+                          </p>
+
+                          <p
+                            className={`mt-1 text-lg font-bold ${
+                              scenario.roi >= 0
+                                ? "text-emerald-600"
+                                : "text-rose-600"
+                            }`}
+                          >
+                            {scenario.roi}%
+                          </p>
+
+                        </div>
+
+                      </div>
+
+                      <div className="mt-4 rounded-2xl bg-white/70 p-4">
+
+                        <div className="flex items-center justify-between text-sm">
+
+                          <span className="font-semibold text-slate-600">
+                            Break-even revenue
+                          </span>
+
+                          <span className="font-bold text-slate-900">
+                            ₹
+                            {scenario.breakEvenRevenue.toLocaleString()}
+                          </span>
+
+                        </div>
+
+                      </div>
+
+                      <div
+                        className={`mt-3 rounded-2xl p-4 ${
+                          scenarioLoss
+                            ? "bg-red-50"
+                            : "bg-emerald-50"
+                        }`}
+                      >
+
+                        <div className="flex items-center justify-between">
+
+                          <span
+                            className={`text-xs font-bold uppercase tracking-wider ${
+                              scenarioLoss
+                                ? "text-red-600"
+                                : "text-emerald-600"
+                            }`}
+                          >
+                            Scenario Status
+                          </span>
+
+                          <span
+                            className={`text-sm font-black ${
+                              scenarioLoss
+                                ? "text-red-600"
+                                : "text-emerald-600"
+                            }`}
+                          >
+                            {scenarioLoss
+                              ? `Loss ₹${scenarioResult.toLocaleString()}`
+                              : `Profit ₹${scenarioResult.toLocaleString()}`}
+                          </span>
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                  );
+                }
+              )}
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* =================================================
+            05 · RISK INTELLIGENCE
+        ================================================= */}
+
+        <section className="mb-14">
+
+          <SectionHeader
+            eyebrow="05 · Risk Intelligence"
+            title="Venture Risk Profile"
+            description="Identify the areas that could prevent the venture from reaching its potential."
+          />
+
+          <div className="mb-6 overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 p-7 text-white shadow-xl">
+
+            <div className="grid gap-8 md:grid-cols-2 md:items-center">
+
+              <div>
+
+                <div className="flex items-center gap-3">
+
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500">
+                    ⚠
+                  </div>
+
+                  <div>
+
+                    <p className="text-sm text-slate-400">
+                      Overall Risk
+                    </p>
+
+                    <p className="font-bold">
+                      {riskData.overallLevel} Risk
+                    </p>
+
+                  </div>
+
+                </div>
+
+                <p className="mt-5 text-5xl font-black">
+
+                  {riskData.overallRisk}
+
+                  <span className="text-xl text-slate-500">
+                    /100
+                  </span>
+
+                </p>
+
+              </div>
+
+              <div>
+
+                <div className="h-4 overflow-hidden rounded-full bg-white/10">
+
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-orange-400 to-red-500"
+                    style={{
+                      width: `${riskData.overallRisk}%`,
+                    }}
+                  />
+
+                </div>
+
+                <div className="mt-3 flex justify-between text-xs text-slate-500">
+
+                  <span>Low</span>
+                  <span>Moderate</span>
+                  <span>High</span>
+                  <span>Very High</span>
+
+                </div>
+
+                <p className="mt-5 text-sm leading-6 text-slate-400">
+                  Lower risk scores indicate a more favorable
+                  risk profile for the venture.
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-2">
+
+            <RiskCard
+              name={riskData.marketRisk.name}
+              score={riskData.marketRisk.score}
+              level={riskData.marketRisk.level}
+              explanation={riskData.marketRisk.explanation}
+            />
+
+            <RiskCard
+              name={riskData.financialRisk.name}
+              score={riskData.financialRisk.score}
+              level={riskData.financialRisk.level}
+              explanation={riskData.financialRisk.explanation}
+            />
+
+            <RiskCard
+              name={riskData.competitionRisk.name}
+              score={riskData.competitionRisk.score}
+              level={riskData.competitionRisk.level}
+              explanation={riskData.competitionRisk.explanation}
+            />
+
+            <RiskCard
+              name={riskData.operationalRisk.name}
+              score={riskData.operationalRisk.score}
+              level={riskData.operationalRisk.level}
+              explanation={riskData.operationalRisk.explanation}
+            />
+
+            <RiskCard
+              name={riskData.regulatoryRisk.name}
+              score={riskData.regulatoryRisk.score}
+              level={riskData.regulatoryRisk.level}
+              explanation={riskData.regulatoryRisk.explanation}
+            />
+
+          </div>
+
+        </section>
+
+        {/* =================================================
+            AI VENTURE ADVISOR
+        ================================================= */}
+
+        <section className="mb-10 overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white shadow-2xl">
+
+          <div className="p-8 md:p-10">
+
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold backdrop-blur">
+              ✨ LAUNCHIQ AI
+            </div>
+
+            <h2 className="text-3xl font-black md:text-4xl">
+              AI Venture Advisor
+            </h2>
+
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-blue-100 md:text-base">
+              Turn your LaunchIQ intelligence report into a
+              practical AI-generated strategy for launching,
+              validating and growing your venture.
+            </p>
+
+            <button
+              type="button"
+              onClick={analyzeWithAI}
+              disabled={aiLoading}
+              className="mt-7 inline-flex items-center justify-center gap-3 rounded-2xl bg-white px-6 py-3.5 text-sm font-bold text-indigo-700 shadow-xl transition-all duration-200 hover:-translate-y-0.5 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+
+              {aiLoading ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-700" />
+
+                  Analyzing your venture...
+                </>
+              ) : (
+                <>
+                  ✨ Analyze with AI
+                </>
+              )}
+
+            </button>
+
+            {aiError && (
+
+              <div className="mt-6 rounded-2xl border border-red-300/30 bg-red-500/20 p-5">
+
+                <p className="text-sm font-bold text-white">
+                  AI analysis could not be completed
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-red-100">
+                  {aiError}
+                </p>
+
+              </div>
+
+            )}
+
+          </div>
+
+          {/* AI RESULT */}
+
+          {advice && (
+
+            <div className="border-t border-white/10 bg-white/10 p-8 backdrop-blur-md md:p-10">
+
+              <div className="mb-6 flex items-center gap-3">
+
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-xl text-indigo-600 shadow-lg">
+                  ✦
+                </div>
+
+                <div>
+
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-200">
+                    AI Analysis Complete
+                  </p>
+
+                  <h3 className="mt-1 text-xl font-bold text-white">
+                    LaunchIQ Strategic Advisor
+                  </h3>
+
+                </div>
+
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-6">
+
+                <div className="whitespace-pre-wrap text-sm leading-7 text-blue-50 md:text-base">
+                  {advice}
+                </div>
+
+              </div>
+
+              <p className="mt-5 text-xs leading-5 text-blue-200">
+                AI-generated analysis is based on the venture
+                information and prototype intelligence shown
+                in this report. It should be used as decision
+                support, not as a guarantee of business success.
+              </p>
+
+            </div>
+
+          )}
+
+        </section>
+
+        {/* =================================================
+            PROTOTYPE NOTICE
+        ================================================= */}
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
+          <div className="flex gap-4">
+
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              ℹ
+            </div>
+
+            <div>
+
+              <h3 className="font-bold text-slate-900">
+                Prototype Intelligence
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                LaunchIQ is currently using prototype
+                rule-based calculations and illustrative
+                market assumptions. Future versions can
+                connect these modules to live market data,
+                competitor intelligence, financial datasets
+                and more advanced AI analysis.
+              </p>
+
+            </div>
+
+          </div>
+
+        </section>
+
+      </div>
+
     </main>
   );
 }
 
-export default function ResearchPage() {
+/* =========================================================
+   RESULTS PAGE
+========================================================= */
+
+export default function ResultsPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-slate-50">
-          <div className="text-center">
-            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-cyan-500" />
+        <main className="flex min-h-screen items-center justify-center bg-slate-950">
 
-            <p className="mt-4 text-sm font-bold text-slate-600">
-              Loading LaunchIQ Research...
+          <div className="text-center text-white">
+
+            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-blue-400" />
+
+            <p className="text-slate-300">
+              Loading LaunchIQ intelligence...
             </p>
+
           </div>
+
         </main>
       }
     >
-      <ResearchPageContent />
+      <ResultsContent />
     </Suspense>
   );
 }
